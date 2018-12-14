@@ -1317,11 +1317,6 @@
     github = "ericevenchick";
     name = "Eric Evenchick";
   };
-  eyjhb = {
-    email = "eyjhbb@gmail.com";
-    github = "eyJhb";
-    name = "eyJhb";
-  };
   exfalso = {
     email = "0slemi0@gmail.com";
     github = "exfalso";
@@ -1341,6 +1336,16 @@
     email = "nix@monoid.al";
     github = "expipiplus1";
     name = "Joe Hermaszewski";
+  };
+  eyjhb = {
+    email = "eyjhbb@gmail.com";
+    github = "eyJhb";
+    name = "eyJhb";
+  };
+  f--t = {
+    email = "git@f-t.me";
+    github = "f--t";
+    name = "f--t";
   };
   f-breidenstein = {
     email = "mail@felixbreidenstein.de";
