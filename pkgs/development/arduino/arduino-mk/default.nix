@@ -1,4 +1,4 @@
-{ stdenv, fetchgit }:
+{ stdenv, lib, fetchgit }:
 
 stdenv.mkDerivation rec {
   version = "1.6.0";
@@ -17,7 +17,7 @@ stdenv.mkDerivation rec {
     description = "Makefile for Arduino sketches";
     homepage = https://github.com/sudar/Arduino-Makefile;
     license = stdenv.lib.licenses.lgpl21;
-    maintainers = [ lib.maintainers.eyjhb ];
+    maintainers = [ stdenv.lib.maintainers.eyjhb ];
     platforms = stdenv.lib.platforms.unix;
   };
 }
