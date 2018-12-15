@@ -1,13 +1,14 @@
-{ stdenv, lib, fetchgit }:
+{ stdenv, lib, fetchFromGitHub }:
 
 stdenv.mkDerivation rec {
   version = "1.6.0";
   name = "arduino-mk-${version}";
 
-  src = fetchgit {
-    url = "https://github.com/sudar/Arduino-Makefile.git";
-    rev = "refs/tags/${version}";
-    sha256 = "0k646nm2n3kji4hp727467z0bicfa67w43ll06mxsdqssnbwgghi";
+  src = fetchFromGitHub {
+    owner  = "sudar";
+    repo   = "Arduino-Makefile";
+    rev    = "${version}";
+    sha256 = "0flpl97d2231gp51n3y4qvf3y1l8xzafi1sgpwc305vwc2h4dl2x";
   };
 
   phases = ["installPhase"];
