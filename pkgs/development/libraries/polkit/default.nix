@@ -20,6 +20,20 @@ stdenv.mkDerivation rec {
     sha256 = "0c91y61y4gy6p91cwbzg32dhavw4b7fflg370rimqhdxpzdfr1rg";
   };
 
+  patches = [
+    # CVE-2019-6133 - See: https://bugs.chromium.org/p/project-zero/issues/detail?id=1692
+    (fetchpatch {
+      url = "https://gitlab.freedesktop.org/polkit/polkit/commit/6cc6aafee135ba44ea748250d7d29b562ca190e3.patch";
+      name = "CVE-2019-6133.patch";
+      sha256 = "0jjlbjzqcz96xh6w3nv3ss9jl0hhrcd7jg4aa5advf08ibaj29r1";
+    })
+    # CVE-2018-19788 - high UID fixup
+    (fetchpatch {
+      url = "https://gitlab.freedesktop.org/polkit/polkit/commit/5230646dc6876ef6e27f57926b1bad348f636147.patch";
+      name = "CVE-2018-19788.patch";
+      sha256 = "1y3az4mlxx8k1zcss5qm7k102s7k1kqgcfnf11j9678fh7p008vp";
+    })
+  ];
 
   postPatch = stdenv.lib.optionalString stdenv.isDarwin ''
     sed -i -e "s/-Wl,--as-needed//" configure.ac
