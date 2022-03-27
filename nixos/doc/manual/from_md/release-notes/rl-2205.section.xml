@@ -27,6 +27,16 @@
       </listitem>
       <listitem>
         <para>
+          GNOME has been upgraded to 42. Please take a look at their
+          <link xlink:href="https://release.gnome.org/42/">Release
+          Notes</link> for details. Notably, it replaces gedit with
+          GNOME Text Editor, GNOME Terminal with GNOME Console (formerly
+          King’s Cross), and GNOME Screenshot with a tool built into the
+          Shell.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
           PHP 8.1 is now available
         </para>
       </listitem>
@@ -60,6 +70,14 @@
           default, but may break some types of workloads. See the
           <link xlink:href="https://kops.sigs.k8s.io/releases/1.22-notes/">release
           notes</link> for details.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Module authors can use
+          <literal>mkRenamedOptionModuleWith</literal> to automate the
+          deprecation cycle without annoying out-of-tree module authors
+          and their users.
         </para>
       </listitem>
     </itemizedlist>
@@ -276,6 +294,13 @@
       </listitem>
       <listitem>
         <para>
+          <link xlink:href="https://github.com/Mic92/nix-ld">nix-ld</link>,
+          Run unpatched dynamic binaries on NixOS. Available as
+          <link xlink:href="options.html#opt-programs.nix-ld.enable">programs.nix-ld</link>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
           <link xlink:href="https://timetagger.app">timetagger</link>,
           an open source time-tracker with an intuitive user experience
           and powerful reporting.
@@ -450,6 +475,15 @@
           The <literal>mailpile</literal> email webclient
           (<literal>services.mailpile</literal>) has been removed due to
           its reliance on python2.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>services.ipfs.extraFlags</literal> is now escaped
+          with <literal>utils.escapeSystemdExecArgs</literal>. If you
+          rely on systemd interpolating <literal>extraFlags</literal> in
+          the service <literal>ExecStart</literal>, this will no longer
+          work.
         </para>
       </listitem>
       <listitem>
@@ -648,6 +682,16 @@
       </listitem>
       <listitem>
         <para>
+          <literal>services.gnome.experimental-features.realtime-scheduling</literal>
+          option has been removed, as GNOME Shell now
+          <link xlink:href="https://gitlab.gnome.org/GNOME/mutter/-/merge_requests/2060">uses
+          rtkit</link>. Use
+          <literal>security.rtkit.enable = true;</literal> instead. As
+          before, you will need to have it enabled using GSettings.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
           If you previously used
           <literal>/etc/docker/daemon.json</literal>, you need to
           incorporate the changes into the new option
@@ -813,6 +857,16 @@
       </listitem>
       <listitem>
         <para>
+          The <literal>miller</literal> package has been upgraded from
+          5.10.3 to
+          <link xlink:href="https://github.com/johnkerl/miller/releases/tag/v6.2.0">6.2.0</link>.
+          See
+          <link xlink:href="https://miller.readthedocs.io/en/latest/new-in-miller-6">What’s
+          new in Miller 6</link>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
           MultiMC has been replaced with the fork PolyMC due to upstream
           developers being hostile to 3rd party package maintainers.
           PolyMC removes all MultiMC branding and is aimed at providing
@@ -834,6 +888,16 @@
           now activated by default. If you want to keep running nspawn
           containers without user namespaces you need to set
           <literal>systemd.nspawn.&lt;name&gt;.execConfig.PrivateUsers = false</literal>
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          The Tor SOCKS proxy is now actually disabled if
+          <literal>services.tor.client.enable</literal> is set to
+          <literal>false</literal> (the default). If you are using this
+          functionality but didn’t change the setting or set it to
+          <literal>false</literal>, you now need to set it to
+          <literal>true</literal>.
         </para>
       </listitem>
       <listitem>
@@ -1190,7 +1254,8 @@
               Legacy options have been mapped to the corresponding
               options under under
               <link xlink:href="options.html#opt-nix.settings">nix.settings</link>
-              but may be deprecated in the future.
+              and will be deprecated when NixOS 21.11 reaches end of
+              life.
             </para>
           </listitem>
           <listitem>
@@ -1539,6 +1604,12 @@
       </listitem>
       <listitem>
         <para>
+          <literal>services.autorandr</literal> now allows for adding
+          hooks and profiles declaratively.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
           The <literal>pomerium-cli</literal> command has been moved out
           of the <literal>pomerium</literal> package into the
           <literal>pomerium-cli</literal> package, following upstream’s
@@ -1614,6 +1685,12 @@
             </para>
           </listitem>
         </itemizedlist>
+      </listitem>
+      <listitem>
+        <para>
+          The <literal>programs.nncp</literal> options were added for
+          generating host-global NNCP configuration.
+        </para>
       </listitem>
     </itemizedlist>
   </section>
