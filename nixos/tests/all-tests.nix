@@ -495,6 +495,7 @@ in
   ergochat = runTest ./ergochat.nix;
   eris-server = runTest ./eris-server.nix;
   esphome = runTest ./esphome.nix;
+  ersatztv = handleTest ./ersatztv.nix { };
   etc = pkgs.callPackage ../modules/system/etc/test.nix { inherit evalMinimalConfig; };
   activation = pkgs.callPackage ../modules/system/activation/test.nix { };
   activation-lib = pkgs.callPackage ../modules/system/activation/lib/test.nix { };
