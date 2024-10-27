@@ -36,6 +36,11 @@
   wayland,
   x264,
   xvidcore,
+  SDL2,
+
+  config,
+  cudaSupport ? config.cudaSupport,
+  cudaPackages ? {}
 }:
 
 rustPlatform.buildRustPackage rec {
@@ -89,7 +94,7 @@ rustPlatform.buildRustPackage rec {
     pkg-config
     rustPlatform.bindgenHook
     autoAddDriverRunpath
-  ];
+  ] ++ lib.optionals cudaSupport [ cudaPackages.cuda_nvcc ];
 
   buildInputs = [
     alsa-lib
@@ -121,6 +126,12 @@ rustPlatform.buildRustPackage rec {
     wayland
     x264
     xvidcore
+    SDL2
+  ] ++ lib.optionals cudaSupport [
+    cudaPackages.cuda_cudart
+    cudaPackages.cuda_nvrtc
+    cudaPackages.libcublas
+    cudaPackages.libcurand
   ];
 
   postBuild = ''
