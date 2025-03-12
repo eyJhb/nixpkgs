@@ -1,62 +1,58 @@
-{ lib
-, buildPythonPackage
-, cryptography
-, fetchFromGitHub
-, mypy
-, pyjwt
-, pytestCheckHook
-, pythonOlder
-, requests
-, responses
-, typing-extensions
+{
+  lib,
+  buildPythonPackage,
+  cryptography,
+  fetchFromGitHub,
+  flaky,
+  pyjwt,
+  pytestCheckHook,
+  pythonOlder,
+  requests,
+  responses,
+  setuptools,
+  typing-extensions,
 }:
 
 buildPythonPackage rec {
   pname = "globus-sdk";
-  version = "3.6.0";
-  format = "setuptools";
+  version = "3.50.0";
+  pyproject = true;
 
-  disabled = pythonOlder "3.6";
+  disabled = pythonOlder "3.7";
 
   src = fetchFromGitHub {
     owner = "globus";
     repo = "globus-sdk-python";
-    rev = version;
-    hash = "sha256-SBLQ+uSZE8YkT+fQWIKGlfhocJXX5k9kSejAbjazjM8=";
+    tag = version;
+    hash = "sha256-gjctcpaV9L8x4ubS4Ox6kyNG7/kl7tZt9c9/7SWVXkg=";
   };
 
-  propagatedBuildInputs = [
+  build-system = [ setuptools ];
+
+  preCheck = ''
+    export HOME=$(mktemp -d)
+  '';
+
+  dependencies = [
     cryptography
     requests
     pyjwt
-  ] ++ lib.optionals (pythonOlder "3.10") [
-    typing-extensions
-  ];
+  ] ++ lib.optionals (pythonOlder "3.10") [ typing-extensions ];
+
+  nativeCheckInputs = [ pytestCheckHook ];
 
   checkInputs = [
-    mypy
-    pytestCheckHook
+    flaky
     responses
   ];
 
-  postPatch = ''
-    substituteInPlace setup.py \
-    --replace "pyjwt[crypto]>=2.0.0,<3.0.0" "pyjwt[crypto]>=2.0.0,<3.0.0"
-  '';
+  pythonImportsCheck = [ "globus_sdk" ];
 
-  pytestFlagsArray = [
-    "-W"
-    "ignore::DeprecationWarning"
-  ];
-
-  pythonImportsCheck = [
-    "globus_sdk"
-  ];
-
-  meta = with lib; {
+  meta = {
     description = "Interface to Globus REST APIs, including the Transfer API and the Globus Auth API";
-    homepage =  "https://github.com/globus/globus-sdk-python";
-    license = licenses.asl20;
-    maintainers = with maintainers; [ ixxie ];
+    homepage = "https://github.com/globus/globus-sdk-python";
+    changelog = "https://github.com/globus/globus-sdk-python/releases/tag/${version}";
+    license = lib.licenses.asl20;
+    maintainers = with lib.maintainers; [ bot-wxt1221 ];
   };
 }

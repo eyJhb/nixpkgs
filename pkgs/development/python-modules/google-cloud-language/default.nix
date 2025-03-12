@@ -1,35 +1,38 @@
-{ lib
-, buildPythonPackage
-, fetchPypi
-, google-api-core
-, libcst
-, mock
-, proto-plus
-, pytestCheckHook
-, pytest-asyncio
-, pythonOlder
+{
+  lib,
+  buildPythonPackage,
+  fetchPypi,
+  google-api-core,
+  proto-plus,
+  protobuf,
+  pytest-asyncio,
+  pytestCheckHook,
+  pythonOlder,
+  setuptools,
 }:
 
 buildPythonPackage rec {
   pname = "google-cloud-language";
-  version = "2.4.1";
-  format = "setuptools";
+  version = "2.17.0";
+  pyproject = true;
 
   disabled = pythonOlder "3.7";
 
   src = fetchPypi {
-    inherit pname version;
-    sha256 = "sha256-BhQQ4QZ7GbacjpLLg5LXm1g5IhIMk3tJdDrHZLquuTk=";
+    pname = "google_cloud_language";
+    inherit version;
+    hash = "sha256-jOIWh7py71jOWHB67egWQlj53rR3kfJJzCqdT4yQdhs=";
   };
 
-  propagatedBuildInputs = [
-    google-api-core
-    libcst
-    proto-plus
-  ];
+  build-system = [ setuptools ];
 
-  checkInputs = [
-    mock
+  dependencies = [
+    google-api-core
+    proto-plus
+    protobuf
+  ] ++ google-api-core.optional-dependencies.grpc;
+
+  nativeCheckInputs = [
     pytestCheckHook
     pytest-asyncio
   ];
@@ -42,8 +45,9 @@ buildPythonPackage rec {
 
   meta = with lib; {
     description = "Google Cloud Natural Language API client library";
-    homepage = "https://github.com/googleapis/python-language";
+    homepage = "https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-language";
+    changelog = "https://github.com/googleapis/google-cloud-python/blob/google-cloud-language-v${version}/packages/google-cloud-language/CHANGELOG.md";
     license = licenses.asl20;
-    maintainers = with maintainers; [ SuperSandro2000 ];
+    maintainers = [ ];
   };
 }

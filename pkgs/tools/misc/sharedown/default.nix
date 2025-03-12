@@ -1,29 +1,31 @@
-{ stdenvNoCC
-, lib
-, fetchFromGitHub
-, ffmpeg
-, yt-dlp
-, libsecret
-, python3
-, pkg-config
-, nodejs
-, electron
-, makeWrapper
-, makeDesktopItem
-, copyDesktopItems
-, yarn2nix-moretea
-, chromium
+{
+  lib,
+  stdenvNoCC,
+  fetchFromGitHub,
+  ffmpeg,
+  yt-dlp,
+  libsecret,
+  python3,
+  pkg-config,
+  nodejs,
+  electron,
+  makeWrapper,
+  makeDesktopItem,
+  copyDesktopItems,
+  yarn2nix-moretea,
+  fetchYarnDeps,
+  chromium,
 }:
 
 stdenvNoCC.mkDerivation rec {
   pname = "Sharedown";
-  version = "3.1.0";
+  version = "5.3.6";
 
   src = fetchFromGitHub {
     owner = "kylon";
-    repo = pname;
-    rev = version;
-    sha256 = "sha256-wQEP3fdp+Mhgoz873cgF65WouWtbEdCdXfLiVSmrjyA=";
+    repo = "Sharedown";
+    tag = version;
+    hash = "sha256-5t/71T/eBg4vkDZTj7mtCkXhS+AuiVhBmx0Zzrry5Lg=";
   };
 
   nativeBuildInputs = [
@@ -38,7 +40,10 @@ stdenvNoCC.mkDerivation rec {
       icon = "Sharedown";
       comment = "An Application to save your Sharepoint videos for offline usage.";
       desktopName = "Sharedown";
-      categories = [ "Network" "Archiving" ];
+      categories = [
+        "Network"
+        "Archiving"
+      ];
     })
   ];
 
@@ -51,13 +56,11 @@ stdenvNoCC.mkDerivation rec {
         yt-dlp
       ]);
 
-      modules = yarn2nix-moretea.mkYarnModules {
-        name = "${pname}-modules-${version}";
+      modules = yarn2nix-moretea.mkYarnModules rec {
+        name = "Sharedown-modules-${version}";
         inherit pname version;
 
-        yarnFlags = yarn2nix-moretea.defaultYarnFlags ++ [
-          "--production"
-        ];
+        yarnFlags = [ "--production" ];
 
         pkgConfig = {
           keytar = {
@@ -76,20 +79,26 @@ stdenvNoCC.mkDerivation rec {
           };
         };
 
+        # needed for node-gyp, copied from https://nixos.org/manual/nixpkgs/unstable/#javascript-yarn2nix-pitfalls
+        # permalink: https://github.com/NixOS/nixpkgs/blob/d176767c02cb2a048e766215078c3d231e666091/doc/languages-frameworks/javascript.section.md#pitfalls-javascript-yarn2nix-pitfalls
         preBuild = ''
-          # Set up headers for node-gyp, which is needed to build keytar.
-          mkdir -p "$HOME/.cache/node-gyp/${nodejs.version}"
+          mkdir -p $HOME/.node-gyp/${nodejs.version}
+          echo 9 > $HOME/.node-gyp/${nodejs.version}/installVersion
+          ln -sfv ${nodejs}/include $HOME/.node-gyp/${nodejs.version}
+          export npm_config_nodedir=${nodejs}
+        '';
 
-          # Set up version which node-gyp checks in <https://github.com/nodejs/node-gyp/blob/4937722cf597ccd1953628f3d5e2ab5204280051/lib/install.js#L87-L96> against the version in <https://github.com/nodejs/node-gyp/blob/4937722cf597ccd1953628f3d5e2ab5204280051/package.json#L15>.
-          echo 9 > "$HOME/.cache/node-gyp/${nodejs.version}/installVersion"
-
-          # Link node headers so that node-gyp does not try to download them.
-          ln -sfv "${nodejs}/include" "$HOME/.cache/node-gyp/${nodejs.version}"
+        postBuild = ''
+          rm $out/node_modules/sharedown
         '';
 
         packageJSON = "${src}/package.json";
         yarnLock = ./yarn.lock;
-        yarnNix = ./yarndeps.nix;
+
+        offlineCache = fetchYarnDeps {
+          inherit yarnLock;
+          hash = "sha256-9Mdn18jJTXyAVQMGl9ImIEbzlkK6walPrgkGzupLPFQ=";
+        };
       };
     in
     ''
@@ -114,13 +123,12 @@ stdenvNoCC.mkDerivation rec {
 
   passthru.updateScript = ./update.sh;
 
-  meta = with lib; {
+  meta = {
     description = "Application to save your Sharepoint videos for offline usage";
     homepage = "https://github.com/kylon/Sharedown";
-    license = licenses.gpl3Plus;
-    maintainers = with maintainers; [
-      jtojnar
-    ];
-    platforms = platforms.unix;
+    license = lib.licenses.gpl3Plus;
+    maintainers = with lib.maintainers; [ ];
+    platforms = lib.platforms.unix;
+    mainProgram = "Sharedown";
   };
 }

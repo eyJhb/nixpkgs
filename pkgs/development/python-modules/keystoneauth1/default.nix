@@ -1,69 +1,81 @@
-{ lib
-, buildPythonPackage
-, fetchPypi
-, betamax
-, hacking
-, iso8601
-, lxml
-, oauthlib
-, os-service-types
-, oslo-config
-, oslo-utils
-, pbr
-, pycodestyle
-, pyyaml
-, requests
-, requests-kerberos
-, requests-mock
-, six
-, stestr
-, stevedore
-, testresources
-, testtools
+{
+  lib,
+  buildPythonPackage,
+  fetchPypi,
+  betamax,
+  fixtures,
+  hacking,
+  iso8601,
+  lxml,
+  oauthlib,
+  os-service-types,
+  oslo-config,
+  oslo-utils,
+  pbr,
+  pycodestyle,
+  pyyaml,
+  requests,
+  requests-kerberos,
+  requests-mock,
+  setuptools,
+  stestr,
+  stevedore,
+  testresources,
+  testtools,
+  typing-extensions,
 }:
 
 buildPythonPackage rec {
   pname = "keystoneauth1";
-  version = "4.4.0";
+  version = "5.10.0";
+  pyproject = true;
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "34662a6be67ab29424aabe6f99a8d7eb6b88d293109a07e60fea123ebffb314f";
+    hash = "sha256-NLhw27z4Bs21rsmEg7YoIKZWjTZOynsRdMpqi1qcd+0=";
   };
 
-  postPatch = ''
-    # only a small portion of the listed packages are actually needed for running the tests
-    # so instead of removing them one by one remove everything
-    rm test-requirements.txt
-  '';
+  build-system = [ setuptools ];
 
-  propagatedBuildInputs = [
-    betamax
-    iso8601
-    lxml
-    oauthlib
-    os-service-types
-    pbr
-    requests
-    requests-kerberos
-    six
-    stevedore
-  ];
+  dependencies =
+    [
+      iso8601
+      os-service-types
+      pbr
+      requests
+      stevedore
+      typing-extensions
+    ]
+    # TODO: remove this workaround and fix breakages
+    ++ lib.flatten (builtins.attrValues optional-dependencies);
 
-  checkInputs = [
+  optional-dependencies = {
+    betamax = [
+      betamax
+      pyyaml
+    ];
+    kerberos = [ requests-kerberos ];
+    oauth1 = [ oauthlib ];
+    saml2 = [ lxml ];
+  };
+
+  nativeCheckInputs = [
+    fixtures
     hacking
     oslo-config
     oslo-utils
     pycodestyle
-    pyyaml
     requests-mock
     stestr
     testresources
     testtools
-  ];
+  ] ++ lib.flatten (builtins.attrValues optional-dependencies);
 
+  # test_keystoneauth_betamax_fixture is incompatible with urllib3 2.0.0
+  # https://bugs.launchpad.net/keystoneauth/+bug/2020112
   checkPhase = ''
-    stestr run
+    stestr run \
+      -E "keystoneauth1.tests.unit.test_betamax_fixture.TestBetamaxFixture.test_keystoneauth_betamax_fixture"
   '';
 
   pythonImportsCheck = [ "keystoneauth1" ];

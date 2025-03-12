@@ -1,29 +1,34 @@
-{ lib
-, rustPlatform
-, fetchFromGitHub
-, stdenv
-, Security
-, testVersion
-, igrep
+{
+  lib,
+  rustPlatform,
+  fetchFromGitHub,
+  stdenv,
+  Security,
+  testers,
+  igrep,
 }:
 
 rustPlatform.buildRustPackage rec {
   pname = "igrep";
-  version = "0.2.0";
+  version = "1.3.0";
 
   src = fetchFromGitHub {
     owner = "konradsz";
     repo = "igrep";
     rev = "v${version}";
-    sha256 = "sha256-CH0wf9EhNnfi93W/4IJf6bPqU4pgw6Q9965Wjln9pso=";
+    hash = "sha256-ZZhzBGLpzd9+rok+S/ypKpWXVzXaA1CnviC7LfgP/CU=";
   };
 
-  cargoSha256 = "sha256-VnZuRLBt/Q+D89+jKm0rak+ID5oNbvN1k8or3pYzfIM=";
+  useFetchCargoVendor = true;
+  cargoHash = "sha256-NZN9pB9McZkTlpGgAbxi8bwn+aRiPMymGmBLYBc6bmw=";
 
-  buildInputs = lib.optionals stdenv.isDarwin [ Security ];
+  buildInputs = lib.optionals stdenv.hostPlatform.isDarwin [ Security ];
 
   passthru.tests = {
-    version = testVersion { package = igrep; command = "ig --version"; };
+    version = testers.testVersion {
+      package = igrep;
+      command = "ig --version";
+    };
   };
 
   meta = with lib; {
@@ -32,5 +37,6 @@ rustPlatform.buildRustPackage rec {
     changelog = "https://github.com/konradsz/igrep/blob/v${version}/CHANGELOG.md";
     license = licenses.mit;
     maintainers = with maintainers; [ _0x4A6F ];
+    mainProgram = "ig";
   };
 }

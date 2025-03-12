@@ -1,18 +1,21 @@
 { stdenv, lib, makeDesktopItem, makeWrapper, lndir, config
-, replace, fetchurl, zip, unzip, jq, xdg-utils, writeText
+, buildPackages
+, jq, xdg-utils, writeText
 
 ## various stuff that can be plugged in
 , ffmpeg, xorg, alsa-lib, libpulseaudio, libcanberra-gtk3, libglvnd, libnotify, opensc
-, gnome/*.gnome-shell*/
-, browserpass, chrome-gnome-shell, uget-integrator, plasma5Packages, bukubrow, pipewire
-, tridactyl-native
-, fx_cast_bridge
+, adwaita-icon-theme
+, pipewire
 , udev
 , libkrb5
 , libva
-, mesa # firefox wants gbm for drm+dmabuf
+, libgbm
 , cups
 , pciutils
+, vulkan-loader
+, sndio
+, libjack2
+, speechd-minimal
 }:
 
 ## configurability of the wrapper itself
@@ -20,18 +23,16 @@
 browser:
 
 let
+  isDarwin = stdenv.hostPlatform.isDarwin;
   wrapper =
-    { applicationName ? browser.binaryName or (lib.getName browser)
+    { applicationName ? browser.binaryName or (lib.getName browser) # Note: this is actually *binary* name and is different from browser.applicationName, which is *app* name!
     , pname ? applicationName
     , version ? lib.getVersion browser
-    , desktopName ? # applicationName with first letter capitalized
-      (lib.toUpper (lib.substring 0 1 applicationName) + lib.substring 1 (-1) applicationName)
     , nameSuffix ? ""
     , icon ? applicationName
-    , wmClass ? null
-    , extraNativeMessagingHosts ? []
+    , wmClass ? applicationName
+    , nativeMessagingHosts ? []
     , pkcs11Modules ? []
-    , forceWayland ? false
     , useGlvnd ? true
     , cfg ? config.${applicationName} or {}
 
@@ -41,11 +42,12 @@ let
     , extraPrefs ? ""
     , extraPrefsFiles ? []
     # For more information about policies visit
-    # https://github.com/mozilla/policy-templates#enterprisepoliciesenabled
+    # https://mozilla.github.io/policy-templates/
     , extraPolicies ? {}
     , extraPoliciesFiles ? []
-    , libName ? browser.libName or "firefox" # Important for tor package or the like
+    , libName ? browser.libName or applicationName # Important for tor package or the like
     , nixExtensions ? null
+    , hasMozSystemDirPatch ? (lib.hasPrefix "firefox" pname && !lib.hasSuffix "-bin" pname)
     }:
 
     let
@@ -53,21 +55,17 @@ let
       gssSupport = browser.gssSupport or false;
       alsaSupport = browser.alsaSupport or false;
       pipewireSupport = browser.pipewireSupport or false;
+      sndioSupport = browser.sndioSupport or false;
+      jackSupport = browser.jackSupport or false;
       # PCSC-Lite daemon (services.pcscd) also must be enabled for firefox to access smartcards
       smartcardSupport = cfg.smartcardSupport or false;
 
-      nativeMessagingHosts =
-        ([ ]
-          ++ lib.optional (cfg.enableBrowserpass or false) (lib.getBin browserpass)
-          ++ lib.optional (cfg.enableBukubrow or false) bukubrow
-          ++ lib.optional (cfg.enableTridactylNative or false) tridactyl-native
-          ++ lib.optional (cfg.enableGnomeExtensions or false) chrome-gnome-shell
-          ++ lib.optional (cfg.enableUgetIntegrator or false) uget-integrator
-          ++ lib.optional (cfg.enablePlasmaBrowserIntegration or false) plasma5Packages.plasma-browser-integration
-          ++ lib.optional (cfg.enableFXCastBridge or false) fx_cast_bridge
-          ++ extraNativeMessagingHosts
-        );
-      libs =   lib.optionals stdenv.isLinux [ udev libva mesa libnotify xorg.libXScrnSaver cups pciutils ]
+      allNativeMessagingHosts = builtins.map lib.getBin nativeMessagingHosts;
+
+       libs = lib.optionals stdenv.hostPlatform.isLinux (
+            [ udev libva libgbm libnotify xorg.libXScrnSaver cups pciutils vulkan-loader ]
+            ++ lib.optional (cfg.speechSynthesisSupport or true) speechd-minimal
+       )
             ++ lib.optional pipewireSupport pipewire
             ++ lib.optional ffmpegSupport ffmpeg
             ++ lib.optional gssSupport libkrb5
@@ -76,9 +74,15 @@ let
             (with xorg; [ stdenv.cc libX11 libXxf86dga libXxf86vm libXext libXt alsa-lib zlib ])
             ++ lib.optional (config.pulseaudio or true) libpulseaudio
             ++ lib.optional alsaSupport alsa-lib
+            ++ lib.optional sndioSupport sndio
+            ++ lib.optional jackSupport libjack2
             ++ lib.optional smartcardSupport opensc
-            ++ pkcs11Modules;
+            ++ pkcs11Modules
+            ++ gtk_modules;
       gtk_modules = [ libcanberra-gtk3 ];
+
+      # Darwin does not rename bundled binaries
+      launcherName = "${applicationName}${lib.optionalString (!isDarwin) nameSuffix}";
 
       #########################
       #                       #
@@ -89,20 +93,20 @@ let
 
       usesNixExtensions = nixExtensions != null;
 
-      nameArray = builtins.map(a: a.name) (if usesNixExtensions then nixExtensions else []);
+      nameArray = builtins.map(a: a.name) (lib.optionals usesNixExtensions nixExtensions);
 
-      # Check that every extension has a unqiue .name attribute
+      # Check that every extension has a unique .name attribute
       # and an extid attribute
       extensions = if nameArray != (lib.unique nameArray) then
         throw "Firefox addon name needs to be unique"
-      else if ! (lib.hasSuffix "esr" browser.name) then
-        throw "Nix addons are only supported in Firefox ESR"
+      else if browser.requireSigning || !browser.allowAddonSideload then
+        throw "Nix addons are only supported with signature enforcement disabled and addon sideloading enabled (eg. LibreWolf)"
       else builtins.map (a:
         if ! (builtins.hasAttr "extid" a) then
-        throw "nixExtensions has an invalid entry. Missing extid attribute. Please use fetchfirefoxaddon"
+        throw "nixExtensions has an invalid entry. Missing extid attribute. Please use fetchFirefoxAddon"
         else
         a
-      ) (if usesNixExtensions then nixExtensions else []);
+      ) (lib.optionals usesNixExtensions nixExtensions);
 
       enterprisePolicies =
       {
@@ -112,40 +116,38 @@ let
         lib.optionalAttrs usesNixExtensions {
           ExtensionSettings = {
             "*" = {
-                blocked_install_message = "You can't have manual extension mixed with nix extensions";
-                installation_mode = "blocked";
-              };
-
+              blocked_install_message = "You can't have manual extension mixed with nix extensions";
+              installation_mode = "blocked";
+            };
           } // lib.foldr (e: ret:
-              ret // {
-                "${e.extid}" = {
-                  installation_mode = "allowed";
-                };
-              }
-            ) {} extensions;
-          } // lib.optionalAttrs usesNixExtensions {
-            Extensions = {
-              Install = lib.foldr (e: ret:
-                ret ++ [ "${e.outPath}/${e.extid}.xpi" ]
-                ) [] extensions;
-            };
-          } // lib.optionalAttrs smartcardSupport {
-            SecurityDevices = {
-              "OpenSC PKCS#11 Module" = "onepin-opensc-pkcs11.so";
-            };
-          }
+            ret // {
+              "${e.extid}" = {
+                installation_mode = "allowed";
+              };
+            }
+          ) {} extensions;
+
+          Extensions = {
+            Install = lib.foldr (e: ret:
+              ret ++ [ "${e.outPath}/${e.extid}.xpi" ]
+            ) [] extensions;
+          };
+        } // lib.optionalAttrs smartcardSupport {
+          SecurityDevices = {
+            "OpenSC PKCS#11 Module" = "opensc-pkcs11.so";
+          };
+        }
         // extraPolicies;
       };
 
-      mozillaCfg =  writeText "mozilla.cfg" ''
+      mozillaCfg = ''
         // First line must be a comment
 
         // Disables addon signature checking
         // to be able to install addons that do not have an extid
         // Security is maintained because only user whitelisted addons
         // with a checksum can be installed
-        ${ lib.optionalString usesNixExtensions ''lockPref("xpinstall.signatures.required", false)'' };
-        ${extraPrefs}
+        ${ lib.optionalString usesNixExtensions ''lockPref("xpinstall.signatures.required", false);'' }
       '';
 
       #############################
@@ -154,36 +156,141 @@ let
       #                           #
       #############################
 
-    in stdenv.mkDerivation {
+    in stdenv.mkDerivation (finalAttrs: {
+      __structuredAttrs = true;
       inherit pname version;
 
-      desktopItem = makeDesktopItem {
-        name = applicationName;
-        exec = "${applicationName}${nameSuffix} %U";
+      desktopItem = makeDesktopItem ({
+        name = launcherName;
+        exec = "${launcherName} --name ${wmClass} %U";
         inherit icon;
-        desktopName = "${desktopName}${nameSuffix}${lib.optionalString forceWayland " (Wayland)"}";
-        genericName = "Web Browser";
-        categories = [ "Network" "WebBrowser" ];
-        mimeTypes = [
-          "text/html"
-          "text/xml"
-          "application/xhtml+xml"
-          "application/vnd.mozilla.xul+xml"
-          "x-scheme-handler/http"
-          "x-scheme-handler/https"
-          "x-scheme-handler/ftp"
-        ];
+        desktopName = browser.applicationName;
+        startupNotify = true;
         startupWMClass = wmClass;
-      };
+        terminal = false;
+      } // (if libName == "thunderbird"
+            then {
+              genericName = "Email Client";
+              comment = "Read and write e-mails or RSS feeds, or manage tasks on calendars.";
+              categories = [
+                "Network" "Chat" "Email" "Feed" "GTK" "News"
+              ];
+              keywords = [
+                "mail" "email" "e-mail" "messages" "rss" "calendar"
+                "address book" "addressbook" "chat"
+              ];
+              mimeTypes = [
+                "message/rfc822"
+                "x-scheme-handler/mailto"
+                "text/calendar"
+                "text/x-vcard"
+              ];
+              actions = {
+                profile-manager-window = {
+                  name = "Profile Manager";
+                  exec = "${launcherName} --ProfileManager";
+                };
+              };
+            }
+            else {
+              genericName = "Web Browser";
+              categories = [ "Network" "WebBrowser" ];
+              mimeTypes = [
+                "text/html"
+                "text/xml"
+                "application/xhtml+xml"
+                "application/vnd.mozilla.xul+xml"
+                "x-scheme-handler/http"
+                "x-scheme-handler/https"
+              ];
+              actions = {
+                new-window = {
+                  name = "New Window";
+                  exec = "${launcherName} --new-window %U";
+                };
+                new-private-window = {
+                  name = "New Private Window";
+                  exec = "${launcherName} --private-window %U";
+                };
+                profile-manager-window = {
+                  name = "Profile Manager";
+                  exec = "${launcherName} --ProfileManager";
+                };
+              };
+            }));
 
-      nativeBuildInputs = [ makeWrapper lndir replace jq ];
+      nativeBuildInputs = [ makeWrapper lndir jq ];
       buildInputs = [ browser.gtk3 ];
 
+      makeWrapperArgs = [
+        "--prefix"
+        "LD_LIBRARY_PATH"
+        ":"
+        "${finalAttrs.libs}"
 
-      buildCommand = ''
-        if [ ! -x "${browser}/bin/${applicationName}" ]
+        "--suffix"
+        "GTK_PATH"
+        ":"
+        "${lib.concatStringsSep ":" finalAttrs.gtk_modules}"
+
+        "--suffix" "PATH"
+        ":"
+        "${placeholder "out"}/bin"
+
+        "--set"
+        "MOZ_APP_LAUNCHER"
+        launcherName
+
+        "--set"
+        "MOZ_LEGACY_PROFILES"
+        "1"
+
+        "--set"
+        "MOZ_ALLOW_DOWNGRADE"
+        "1"
+
+        "--suffix"
+        "XDG_DATA_DIRS"
+        ":"
+        "${adwaita-icon-theme}/share"
+
+        "--set-default"
+        "MOZ_ENABLE_WAYLAND"
+        "1"
+
+      ] ++ lib.optionals (!xdg-utils.meta.broken) [
+        # make xdg-open overridable at runtime
+        "--suffix"
+        "PATH"
+        ":"
+        "${lib.makeBinPath [ xdg-utils ]}"
+
+      ] ++ lib.optionals hasMozSystemDirPatch [
+        "--set"
+        "MOZ_SYSTEM_DIR"
+        "${placeholder "out"}/lib/mozilla"
+
+      ] ++ lib.optionals (!hasMozSystemDirPatch && allNativeMessagingHosts != [ ]) [
+        "--run"
+        ''mkdir -p ''${MOZ_HOME:-~/.mozilla}/native-messaging-hosts''
+
+      ] ++ lib.optionals (!hasMozSystemDirPatch) (lib.concatMap (ext: [
+        "--run"
+        ''ln -sfLt ''${MOZ_HOME:-~/.mozilla}/native-messaging-hosts ${ext}/lib/mozilla/native-messaging-hosts/*''
+      ]) allNativeMessagingHosts);
+
+      buildCommand = let
+        appPath = "Applications/${browser.applicationName}.app";
+        executablePrefix = if isDarwin then "${appPath}/Contents/MacOS" else "bin";
+        executablePath="${executablePrefix}/${applicationName}";
+        finalBinaryPath = "${executablePath}" + lib.optionalString (!isDarwin) "${nameSuffix}";
+        sourceBinary="${browser}/${executablePath}";
+        libDir = if isDarwin then "${appPath}/Contents/Resources" else "lib/${libName}";
+        prefsDir = if isDarwin then "${libDir}/browser/defaults/preferences" else "${libDir}/defaults/pref";
+      in ''
+        if [ ! -x "${sourceBinary}" ]
         then
-            echo "cannot find executable file \`${browser}/bin/${applicationName}'"
+            echo "cannot find executable file \`${sourceBinary}'"
             exit 1
         fi
 
@@ -206,67 +313,79 @@ let
         done
 
         # fix links and absolute references
-        cd "${browser}"
 
         find . -type l -print0 | while read -d $'\0' l; do
-          target="$(readlink "$l" | replace-literal -es -- "${browser}" "$out")"
+          target="$(readlink "$l")"
+          target=''${target/#"${browser}"/"$out"}
           ln -sfT "$target" "$out/$l"
         done
 
-        # This will not patch binaries, only "text" files.
-        # Its there for the wrapper mostly.
         cd "$out"
-        replace-literal -esfR -- "${browser}" "$out"
+
+      '' + lib.optionalString isDarwin ''
+        cd "${appPath}"
+
+        # These files have to be copied and not symlinked, otherwise tabs crash.
+        # Maybe related to how omni.ja file is mmapped into memory. See:
+        # https://github.com/mozilla/gecko-dev/blob/b1662b447f306e6554647914090d4b73ac8e1664/modules/libjar/nsZipArchive.cpp#L204
+        for file in $(find . -type l -name "omni.ja"); do
+          rm "$file"
+          cp "${browser}/${appPath}/$file" "$file"
+        done
+
+        # Copy any embedded .app directories; plugin-container fails to start otherwise.
+        for dir in $(find . -type d -name '*.app'); do
+          rm -r "$dir"
+          cp -r "${browser}/${appPath}/$dir" "$dir"
+        done
+
+        cd ..
+
+      '' + ''
 
         # create the wrapper
 
-        executablePrefix="$out/bin"
-        executablePath="$executablePrefix/${applicationName}"
+        executablePrefix="$out/${executablePrefix}"
+        executablePath="$out/${executablePath}"
+        oldWrapperArgs=()
 
-        if [ ! -x "$executablePath" ]
-        then
-            echo "cannot find executable file \`${browser}/bin/${applicationName}'"
-            exit 1
-        fi
-
-        if [ ! -L "$executablePath" ]
-        then
-          # Careful here, the file at executablePath may already be
-          # a wrapper. That is why we postfix it with -old instead
-          # of -wrapped.
-          oldExe="$executablePrefix"/".${applicationName}"-old
-          mv "$executablePath" "$oldExe"
-        else
+        if [[ -L $executablePath ]]; then
+          # Symbolic link: wrap the link's target.
           oldExe="$(readlink -v --canonicalize-existing "$executablePath")"
+          rm "$executablePath"
+        elif wrapperCmd=$(${buildPackages.makeBinaryWrapper.extractCmd} "$executablePath"); [[ $wrapperCmd ]]; then
+          # If the executable is a binary wrapper, we need to update its target to
+          # point to $out, but we can't just edit the binary in-place because of length
+          # issues. So we extract the command used to create the wrapper and add the
+          # arguments to our wrapper.
+          parseMakeCWrapperCall() {
+            shift # makeCWrapper
+            oldExe=$1; shift
+            oldWrapperArgs=("$@")
+          }
+          eval "parseMakeCWrapperCall ''${wrapperCmd//"${browser}"/"$out"}"
+          rm "$executablePath"
+        else
+          if read -rn2 shebang < "$executablePath" && [[ $shebang == '#!' ]]; then
+            # Shell wrapper: patch in place to point to $out.
+            sed -i "s@${browser}@$out@g" "$executablePath"
+          fi
+          # Suffix the executable with -old, because -wrapped might already be used by the old wrapper.
+          oldExe="$executablePrefix/.${applicationName}"-old
+          mv "$executablePath" "$oldExe"
         fi
 
-        if [ ! -x "${browser}/bin/${applicationName}" ]
-        then
-            echo "cannot find executable file \`${browser}/bin/${applicationName}'"
-            exit 1
-        fi
+        appendToVar makeWrapperArgs --prefix XDG_DATA_DIRS : "$GSETTINGS_SCHEMAS_PATH"
+        concatTo makeWrapperArgs oldWrapperArgs
 
-        makeWrapper "$oldExe" \
-          "$out/bin/${applicationName}${nameSuffix}" \
-            --prefix LD_LIBRARY_PATH ':' "$libs" \
-            --suffix-each GTK_PATH ':' "$gtk_modules" \
-            --prefix PATH ':' "${xdg-utils}/bin" \
-            --suffix PATH ':' "$out/bin" \
-            --set MOZ_APP_LAUNCHER "${applicationName}${nameSuffix}" \
-            --set MOZ_SYSTEM_DIR "$out/lib/mozilla" \
-            --set MOZ_LEGACY_PROFILES 1 \
-            --set MOZ_ALLOW_DOWNGRADE 1 \
-            --prefix XDG_DATA_DIRS : "$GSETTINGS_SCHEMAS_PATH" \
-            --suffix XDG_DATA_DIRS : '${gnome.adwaita-icon-theme}/share' \
-            ${lib.optionalString forceWayland ''
-              --set MOZ_ENABLE_WAYLAND "1" \
-            ''}
+        makeWrapper "$oldExe" "$out/${finalBinaryPath}" "''${makeWrapperArgs[@]}"
+
         #############################
         #                           #
         #   END EXTRA PREF CHANGES  #
         #                           #
         #############################
-
+      '' + lib.optionalString (!isDarwin) ''
         if [ -e "${browser}/share/icons" ]; then
             mkdir -p "$out/share"
             ln -s "${browser}/share/icons" "$out/share/icons"
@@ -282,10 +401,12 @@ let
 
         install -D -t $out/share/applications $desktopItem/share/applications/*
 
+      '' + lib.optionalString hasMozSystemDirPatch ''
         mkdir -p $out/lib/mozilla/native-messaging-hosts
-        for ext in ${toString nativeMessagingHosts}; do
+        for ext in ${toString allNativeMessagingHosts}; do
             ln -sLt $out/lib/mozilla/native-messaging-hosts $ext/lib/mozilla/native-messaging-hosts/*
         done
+      '' + ''
 
         mkdir -p $out/lib/mozilla/pkcs11-modules
         for ext in ${toString pkcs11Modules}; do
@@ -299,35 +420,42 @@ let
         #                       #
         #########################
         # user customization
-        mkdir -p $out/lib/${libName}
+        libDir="$out/${libDir}"
 
         # creating policies.json
-        mkdir -p "$out/lib/${libName}/distribution"
+        mkdir -p "$libDir/distribution"
 
-        POL_PATH="$out/lib/${libName}/distribution/policies.json"
+        POL_PATH="$libDir/distribution/policies.json"
         rm -f "$POL_PATH"
         cat ${policiesJson} >> "$POL_PATH"
 
         extraPoliciesFiles=(${builtins.toString extraPoliciesFiles})
         for extraPoliciesFile in "''${extraPoliciesFiles[@]}"; do
-          jq -s '.[0] + .[1]' "$POL_PATH" $extraPoliciesFile > .tmp.json
+          jq -s '.[0] * .[1]' "$POL_PATH" $extraPoliciesFile > .tmp.json
           mv .tmp.json "$POL_PATH"
         done
 
         # preparing for autoconfig
-        mkdir -p "$out/lib/${libName}/defaults/pref"
+        prefsDir="$out/${prefsDir}"
+        mkdir -p "$prefsDir"
 
-        echo 'pref("general.config.filename", "mozilla.cfg");' > "$out/lib/${libName}/defaults/pref/autoconfig.js"
-        echo 'pref("general.config.obscure_value", 0);' >> "$out/lib/${libName}/defaults/pref/autoconfig.js"
+        echo 'pref("general.config.filename", "mozilla.cfg");' > "$prefsDir/autoconfig.js"
+        echo 'pref("general.config.obscure_value", 0);' >> "$prefsDir/autoconfig.js"
 
-        cat > "$out/lib/${libName}/mozilla.cfg" < ${mozillaCfg}
+        cat > "$libDir/mozilla.cfg" << EOF
+        ${mozillaCfg}
+        EOF
 
         extraPrefsFiles=(${builtins.toString extraPrefsFiles})
         for extraPrefsFile in "''${extraPrefsFiles[@]}"; do
-          cat "$extraPrefsFile" >> "$out/lib/${libName}/mozilla.cfg"
+          cat "$extraPrefsFile" >> "$libDir/mozilla.cfg"
         done
 
-        mkdir -p $out/lib/${libName}/distribution/extensions
+        cat >> "$libDir/mozilla.cfg" << EOF
+        ${extraPrefs}
+        EOF
+
+        mkdir -p "$libDir/distribution/extensions"
 
         #############################
         #                           #
@@ -344,11 +472,11 @@ let
       passthru = { unwrapped = browser; };
 
       disallowedRequisites = [ stdenv.cc ];
-
       meta = browser.meta // {
-        description = browser.meta.description;
+        inherit (browser.meta) description;
+        mainProgram = launcherName;
         hydraPlatforms = [];
-        priority = (browser.meta.priority or 0) - 1; # prefer wrapper over the package
+        priority = (browser.meta.priority or lib.meta.defaultPriority) - 1; # prefer wrapper over the package
       };
-    };
+    });
 in lib.makeOverridable wrapper

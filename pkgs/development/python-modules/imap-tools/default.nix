@@ -1,28 +1,26 @@
-{ lib
-, buildPythonPackage
-, isPy27
-, fetchFromGitHub
-, pytestCheckHook
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+  setuptools,
+  pytestCheckHook,
 }:
 
 buildPythonPackage rec {
   pname = "imap-tools";
-  version = "0.52.0";
-
-  disabled = isPy27;
-
-  format = "setuptools";
+  version = "1.10.0";
+  pyproject = true;
 
   src = fetchFromGitHub {
     owner = "ikvk";
     repo = "imap_tools";
-    rev = "v${version}";
-    hash = "sha256-la2+cpTnHZQn/FXtySp+3zDCBTONiLC16Tm+hDiIERc=";
+    tag = "v${version}";
+    hash = "sha256-lan12cHkoxCKadgyFey4ShcnwFg3Gl/VqKWlYAkvF3Y=";
   };
 
-  checkInputs = [
-    pytestCheckHook
-  ];
+  build-system = [ setuptools ];
+
+  nativeCheckInputs = [ pytestCheckHook ];
 
   disabledTests = [
     # tests require a network connection
@@ -39,6 +37,7 @@ buildPythonPackage rec {
   meta = with lib; {
     description = "Work with email and mailbox by IMAP";
     homepage = "https://github.com/ikvk/imap_tools";
+    changelog = "https://github.com/ikvk/imap_tools/blob/${src.tag}/docs/release_notes.rst";
     license = licenses.asl20;
     maintainers = with maintainers; [ dotlambda ];
   };

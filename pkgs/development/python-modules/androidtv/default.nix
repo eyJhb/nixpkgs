@@ -1,47 +1,58 @@
-{ lib
-, adb-shell
-, aiofiles
-, buildPythonPackage
-, fetchFromGitHub
-, mock
-, pure-python-adb
-, pytestCheckHook
-, pythonOlder
+{
+  lib,
+  adb-shell,
+  aiofiles,
+  async-timeout,
+  buildPythonPackage,
+  fetchFromGitHub,
+  mock,
+  pure-python-adb,
+  pytestCheckHook,
+  pythonOlder,
+  setuptools,
 }:
 
 buildPythonPackage rec {
   pname = "androidtv";
-  version = "0.0.65";
-  format = "setuptools";
+  version = "0.0.75";
+  pyproject = true;
 
   disabled = pythonOlder "3.7";
 
   src = fetchFromGitHub {
     owner = "JeffLIrion";
     repo = "python-androidtv";
-    rev = "v${version}";
-    hash = "sha256-bhXmPplRT9gzeD/GdD2HxN+Z4vvaiaxBwkqSml9SJUs=";
+    tag = "v${version}";
+    hash = "sha256-2WFfGGEZkM3fWyTo5P6H3ha04Qyx2OiYetlGWv0jXac=";
   };
 
-  propagatedBuildInputs = [
+  build-system = [ setuptools ];
+
+  dependencies = [
     adb-shell
-    aiofiles
+    async-timeout
     pure-python-adb
   ];
 
-  checkInputs = [
-    mock
-    pytestCheckHook
-  ];
+  optional-dependencies = {
+    async = [ aiofiles ];
+    inherit (adb-shell.optional-dependencies) usb;
+  };
+
+  nativeCheckInputs =
+    [
+      mock
+      pytestCheckHook
+    ]
+    ++ optional-dependencies.async
+    ++ optional-dependencies.usb;
 
   disabledTests = [
     # Requires git but fails anyway
     "test_no_underscores"
   ];
 
-  pythonImportsCheck = [
-    "androidtv"
-  ];
+  pythonImportsCheck = [ "androidtv" ];
 
   meta = with lib; {
     description = "Communicate with an Android TV or Fire TV device via ADB over a network";

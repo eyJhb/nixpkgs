@@ -1,37 +1,98 @@
-{ lib
-, buildPythonPackage
-, fetchPypi
-, cmake
-, numba
-, numpy
-, pytestCheckHook
-, pyyaml
-, rapidjson
+{
+  lib,
+  stdenv,
+  buildPythonPackage,
+  fetchFromGitHub,
+
+  # build-system
+  hatch-fancy-pypi-readme,
+  hatchling,
+
+  # dependencies
+  awkward-cpp,
+  fsspec,
+  numpy,
+  packaging,
+
+  # tests
+  numba,
+  numexpr,
+  pandas,
+  pyarrow,
+  pytest-xdist,
+  pytestCheckHook,
+  pythonAtLeast,
 }:
 
 buildPythonPackage rec {
   pname = "awkward";
-  version = "1.8.0";
+  version = "2.7.4";
+  pyproject = true;
 
-  src = fetchPypi {
-    inherit pname version;
-    sha256 = "sha256-ZlX6ItGx0dy5zO4NUCNQq5DFNGehC1QLdiRCK1lNLnI=";
+  src = fetchFromGitHub {
+    owner = "scikit-hep";
+    repo = "awkward";
+    tag = "v${version}";
+    hash = "sha256-OXSl+8sfrx+JlLu40wHf+98WVNNwm9uxvsnGXRDztDg=";
   };
 
-  nativeBuildInputs = [ cmake ];
-  buildInputs = [ pyyaml rapidjson ];
-  propagatedBuildInputs = [ numpy ];
+  build-system = [
+    hatch-fancy-pypi-readme
+    hatchling
+  ];
+
+  dependencies = [
+    awkward-cpp
+    fsspec
+    numpy
+    packaging
+  ];
 
   dontUseCmakeConfigure = true;
 
-  checkInputs = [ pytestCheckHook numba ];
-  dontUseSetuptoolsCheck = true;
-  disabledTestPaths = [ "tests-cuda" ];
+  pythonImportsCheck = [ "awkward" ];
 
-  meta = with lib; {
+  nativeCheckInputs = [
+    fsspec
+    numba
+    numexpr
+    pandas
+    pyarrow
+    pytest-xdist
+    pytestCheckHook
+  ];
+
+  disabledTests =
+    [
+      # pyarrow.lib.ArrowInvalid
+      "test_recordarray"
+    ]
+    ++ lib.optionals (pythonAtLeast "3.13") [
+      # AttributeError: 'FrameLocalsProxy' object has no attribute 'clear'
+      "test_numexpr"
+    ];
+
+  disabledTestPaths =
+    [
+      # Need to be run on a GPU platform.
+      "tests-cuda"
+    ]
+    ++ lib.optionals (stdenv.hostPlatform.isLinux && stdenv.hostPlatform.isAarch64) [
+      # Fatal Python error: Segmentation fault at:
+      # numba/typed/typedlist.py", line 344 in append
+      "tests/test_0118_numba_cpointers.py"
+      "tests/test_0397_arrays_as_constants_in_numba.py"
+      "tests/test_1677_array_builder_in_numba.py"
+      "tests/test_2055_array_builder_check.py"
+      "tests/test_2349_growablebuffer_in_numba.py"
+      "tests/test_2408_layoutbuilder_in_numba.py"
+    ];
+
+  meta = {
     description = "Manipulate JSON-like data with NumPy-like idioms";
-    homepage = "https://github.com/scikit-hep/awkward-1.0";
-    license = licenses.bsd3;
-    maintainers = with maintainers; [ veprbl ];
+    homepage = "https://github.com/scikit-hep/awkward";
+    changelog = "https://github.com/scikit-hep/awkward/releases/tag/v${version}";
+    license = lib.licenses.bsd3;
+    maintainers = with lib.maintainers; [ veprbl ];
   };
 }

@@ -1,21 +1,44 @@
-{ lib, stdenv, rustPlatform, fetchFromGitHub, CoreServices, Foundation, installShellFiles, libiconv }:
+{
+  lib,
+  stdenv,
+  rustPlatform,
+  fetchFromGitHub,
+  Cocoa,
+  AppKit,
+  installShellFiles,
+}:
 
 rustPlatform.buildRustPackage rec {
   pname = "watchexec";
-  version = "1.17.1";
+  version = "2.3.0";
 
   src = fetchFromGitHub {
     owner = pname;
     repo = pname;
-    rev = "cli-v${version}";
-    sha256 = "13yqghdhakkwp607j84a1vbqgnqqn77a5mh27cr24352ik2vkrkq";
+    rev = "v${version}";
+    hash = "sha256-yZGMibh6Qo4gIwj5v0LRt7kdrHGsJ1OG3ACvVKZY7hQ=";
   };
 
-  cargoSha256 = "0grzfzxw705zs5qb2h7k0yws45m20ihhh4mnpmk3wargbxpn6gsh";
+  useFetchCargoVendor = true;
+  cargoHash = "sha256-O2Y0LT16p8tV02OFFgKwPIPn7+qeACJPtT0VWLSyCVE=";
 
   nativeBuildInputs = [ installShellFiles ];
 
-  buildInputs = lib.optionals stdenv.isDarwin [ CoreServices Foundation libiconv ];
+  buildInputs = lib.optionals stdenv.hostPlatform.isDarwin [
+    Cocoa
+    AppKit
+  ];
+
+  NIX_LDFLAGS = lib.optionalString stdenv.hostPlatform.isDarwin "-framework AppKit";
+
+  checkFlags = [
+    "--skip=help"
+    "--skip=help_short"
+  ];
+
+  postPatch = ''
+    rm .cargo/config.toml
+  '';
 
   postInstall = ''
     installManPage doc/watchexec.1
@@ -27,5 +50,6 @@ rustPlatform.buildRustPackage rec {
     homepage = "https://watchexec.github.io/";
     license = with licenses; [ asl20 ];
     maintainers = [ maintainers.michalrus ];
+    mainProgram = "watchexec";
   };
 }

@@ -1,4 +1,4 @@
-{ lib, stdenv, fetchurl, ocaml, findlib, darwin }:
+{ lib, stdenv, fetchurl, ocaml, findlib, darwin, ocaml-lsp, dune-release }:
 
 if lib.versionOlder ocaml.version "4.08"
 then throw "dune 3 is not available for OCaml ${ocaml.version}"
@@ -6,22 +6,22 @@ else
 
 stdenv.mkDerivation rec {
   pname = "dune";
-  version = "3.0.3";
+  version = "3.17.2";
 
   src = fetchurl {
-    url = "https://github.com/ocaml/dune/releases/download/${version}/fiber-${version}.tbz";
-    sha256 = "sha256-1QRJmhZY8Nmcrvv/1zhvLjHUbOynMWcVf+RobEHlcy8=";
+    url = "https://github.com/ocaml/dune/releases/download/${version}/dune-${version}.tbz";
+    hash = "sha256-ner+7Q7P6eZeZCzY5hl/CGT3P817lLWxma5NLgei6mQ=";
   };
 
   nativeBuildInputs = [ ocaml findlib ];
 
-  buildInputs = lib.optionals stdenv.isDarwin [
-    darwin.apple_sdk.frameworks.Foundation
+  buildInputs = lib.optionals stdenv.hostPlatform.isDarwin [
+    darwin.apple_sdk.frameworks.CoreServices
   ];
 
   strictDeps = true;
 
-  buildFlags = "release";
+  buildFlags = [ "release" ];
 
   dontAddPrefix = true;
   dontAddStaticConfigureFlags = true;
@@ -29,11 +29,16 @@ stdenv.mkDerivation rec {
 
   installFlags = [ "PREFIX=${placeholder "out"}" "LIBDIR=$(OCAMLFIND_DESTDIR)" ];
 
+  passthru.tests = {
+    inherit ocaml-lsp dune-release;
+  };
+
   meta = {
     homepage = "https://dune.build/";
-    description = "A composable build system";
+    description = "Composable build system";
+    mainProgram = "dune";
     changelog = "https://github.com/ocaml/dune/raw/${version}/CHANGES.md";
-    maintainers = [ lib.maintainers.vbgl lib.maintainers.marsam ];
+    maintainers = [ lib.maintainers.vbgl ];
     license = lib.licenses.mit;
     inherit (ocaml.meta) platforms;
   };

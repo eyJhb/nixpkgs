@@ -1,45 +1,70 @@
-{ lib
-, buildPythonPackage
-, fetchPypi
-, spglib
-, numpy
-, scipy
-, matplotlib
-, ase
-, netcdf4
-, pytest
-, pythonOlder
-, cython
-, cmake
+{
+  lib,
+  buildPythonPackage,
+  fetchPypi,
+  spglib,
+  numpy,
+  scipy,
+  matplotlib,
+  ase,
+  netcdf4,
+  pythonOlder,
+  cython,
+  cmake,
+  setuptools,
+  setuptools-scm,
 }:
 
 buildPythonPackage rec {
-  version = "22.3.2";
-  pname = "BoltzTraP2";
+  pname = "boltztrap2";
+  version = "25.2.1";
+
+  pyproject = true;
+
+  build-system = [
+    setuptools
+    setuptools-scm
+  ];
+
   disabled = pythonOlder "3.5";
 
   src = fetchPypi {
-    inherit pname version;
-    sha256 = "sha256-Yo37xdXxCQKkA+lrFEZp1DxjJy216Q6aYYT68PEx9JU=";
+    pname = "boltztrap2";
+    inherit version;
+    hash = "sha256-vsg3VsN4sea+NFNwTk/5KiT/vwftDYRSAIflK+rwbQs=";
   };
+
+  postPatch = ''
+    substituteInPlace pyproject.toml \
+      --replace-fail "numpy>=2.0.0" "numpy"
+  '';
 
   dontUseCmakeConfigure = true;
 
-  nativeBuildInputs = [ cmake cython ];
-  checkInputs = [ pytest ];
-  propagatedBuildInputs = [ spglib numpy scipy matplotlib ase netcdf4 ];
+  nativeBuildInputs = [
+    cmake
+    cython
+  ];
+
+  dependencies = [
+    spglib
+    numpy
+    scipy
+    matplotlib
+    ase
+    netcdf4
+  ];
 
   # pypi release does no include files for tests
   doCheck = false;
 
-  checkPhase = ''
-    py.test
-  '';
+  pythonImportsCheck = [ "BoltzTraP2" ];
 
   meta = with lib; {
-    homepage = "http://www.boltztrap.org/";
     description = "Band-structure interpolator and transport coefficient calculator";
-    license = licenses.gpl3;
-    maintainers = [ maintainers.costrouc ];
+    mainProgram = "btp2";
+    homepage = "http://www.boltztrap.org/";
+    license = licenses.gpl3Plus;
+    maintainers = [ ];
   };
 }

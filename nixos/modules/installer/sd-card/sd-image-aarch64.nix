@@ -24,6 +24,9 @@
         [pi3]
         kernel=u-boot-rpi3.bin
 
+        # Otherwise the serial output will be garbled.
+        core_freq=250
+
         [pi02]
         kernel=u-boot-rpi3.bin
 
@@ -38,6 +41,12 @@
 
         # Supported in newer board revisions
         arm_boost=1
+
+        [cm4]
+        # Enable host mode on the 2711 built-in XHCI USB controller.
+        # This line should be removed if the legacy DWC2 controller is required
+        # (e.g. for USB device mode) or if USB support is not required.
+        otg_mode=1
 
         [all]
         # Boot in 64-bit mode.
@@ -60,11 +69,20 @@
 
         # Add pi3 specific files
         cp ${pkgs.ubootRaspberryPi3_64bit}/u-boot.bin firmware/u-boot-rpi3.bin
+        cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-2-b.dtb firmware/
+        cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-3-b.dtb firmware/
+        cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-3-b-plus.dtb firmware/
+        cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-cm3.dtb firmware/
+        cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-zero-2.dtb firmware/
+        cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-zero-2-w.dtb firmware/
 
         # Add pi4 specific files
         cp ${pkgs.ubootRaspberryPi4_64bit}/u-boot.bin firmware/u-boot-rpi4.bin
         cp ${pkgs.raspberrypi-armstubs}/armstub8-gic.bin firmware/armstub8-gic.bin
         cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2711-rpi-4-b.dtb firmware/
+        cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2711-rpi-400.dtb firmware/
+        cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2711-rpi-cm4.dtb firmware/
+        cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2711-rpi-cm4s.dtb firmware/
       '';
     populateRootCommands = ''
       mkdir -p ./files/boot

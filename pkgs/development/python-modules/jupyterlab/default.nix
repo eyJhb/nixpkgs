@@ -1,34 +1,62 @@
-{ lib
-, buildPythonPackage
-, fetchPypi
-, jupyterlab_server
-, notebook
-, pythonOlder
-, jupyter-packaging
-, nbclassic
+{
+  lib,
+  buildPythonPackage,
+  fetchPypi,
+  hatch-jupyter-builder,
+  hatchling,
+  async-lru,
+  httpx,
+  importlib-metadata,
+  ipykernel,
+  jinja2,
+  jupyter-core,
+  jupyter-lsp,
+  jupyter-server,
+  jupyterlab-server,
+  notebook-shim,
+  packaging,
+  setuptools,
+  tomli,
+  tornado,
+  traitlets,
+  pythonOlder,
 }:
 
 buildPythonPackage rec {
   pname = "jupyterlab";
-  version = "3.3.2";
-  format = "setuptools";
+  version = "4.3.4";
+  pyproject = true;
 
-  disabled = pythonOlder "3.7";
+  disabled = pythonOlder "3.8";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "sha256-PHFr9VkssoxcVcYVxuW9PvxxiY9pV9E3GbVkeLu7WHo=";
+    hash = "sha256-8LubCaBHZuNCPMzC/CMWmqL/7c34cT6eD7M8rAtoWdA=";
   };
 
-  nativeBuildInputs = [
-    jupyter-packaging
+  build-system = [
+    hatch-jupyter-builder
+    hatchling
   ];
 
-  propagatedBuildInputs = [
-    jupyterlab_server
-    notebook
-    nbclassic
-  ];
+  dependencies =
+    [
+      async-lru
+      httpx
+      ipykernel
+      jinja2
+      jupyter-core
+      jupyter-lsp
+      jupyter-server
+      jupyterlab-server
+      notebook-shim
+      packaging
+      setuptools
+      tornado
+      traitlets
+    ]
+    ++ lib.optionals (pythonOlder "3.11") [ tomli ]
+    ++ lib.optionals (pythonOlder "3.10") [ importlib-metadata ];
 
   makeWrapperArgs = [
     "--set"
@@ -39,14 +67,14 @@ buildPythonPackage rec {
   # Depends on npm
   doCheck = false;
 
-  pythonImportsCheck = [
-    "jupyterlab"
-  ];
+  pythonImportsCheck = [ "jupyterlab" ];
 
   meta = with lib; {
+    changelog = "https://github.com/jupyterlab/jupyterlab/blob/v${version}/CHANGELOG.md";
     description = "Jupyter lab environment notebook server extension";
-    license = with licenses; [ bsd3 ];
+    license = licenses.bsd3;
     homepage = "https://jupyter.org/";
-    maintainers = with maintainers; [ zimbatm costrouc ];
+    maintainers = lib.teams.jupyter.members;
+    mainProgram = "jupyter-lab";
   };
 }

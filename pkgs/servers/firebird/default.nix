@@ -1,22 +1,23 @@
-{ lib, stdenv, fetchFromGitHub, libedit, autoreconfHook, zlib, unzip, libtommath, libtomcrypt, icu, superServer ? false }:
+{ lib, stdenv, fetchFromGitHub, libedit, autoreconfHook271, zlib, unzip, libtommath, libtomcrypt, icu73, superServer ? false }:
 
 let base = {
   pname = "firebird";
 
   meta = with lib; {
     description = "SQL relational database management system";
+    downloadPage = "https://github.com/FirebirdSQL/firebird/";
     homepage = "https://firebirdsql.org/";
     changelog = "https://github.com/FirebirdSQL/firebird/blob/master/CHANGELOG.md";
     license = [ "IDPL" "Interbase-1.0" ];
     platforms = platforms.linux;
-    maintainers = with maintainers; [ marcweber ];
+    maintainers = with maintainers; [ bbenno marcweber ];
   };
 
-  nativeBuildInputs = [ autoreconfHook ];
+  nativeBuildInputs = [ autoreconfHook271 ];
 
-  buildInputs = [ libedit icu ];
+  buildInputs = [ libedit icu73 ];
 
-  LD_LIBRARY_PATH = lib.makeLibraryPath [ icu ];
+  LD_LIBRARY_PATH = lib.makeLibraryPath [ icu73 ];
 
   configureFlags = [
     "--with-system-editline"
@@ -54,13 +55,13 @@ let base = {
   });
 
   firebird_3 = stdenv.mkDerivation (base // rec {
-    version = "3.0.8";
+    version = "3.0.12";
 
     src = fetchFromGitHub {
       owner = "FirebirdSQL";
       repo = "firebird";
       rev = "v${version}";
-      sha256 = "sha256-l1V3CGxTybPY8pl6WhsExqdWJLiYsOv5BCrU/iD+I7k=";
+      hash = "sha256-po8tMrOahfwayVXa7Eadr9+ZEmZizHlCmxi094cOJSY=";
     };
 
     buildInputs = base.buildInputs ++ [ zlib libtommath ];
@@ -69,13 +70,13 @@ let base = {
   });
 
   firebird_4 = stdenv.mkDerivation (base // rec {
-    version = "4.0.1";
+    version = "4.0.2";
 
     src = fetchFromGitHub {
       owner = "FirebirdSQL";
       repo = "firebird";
       rev = "v${version}";
-      sha256 = "sha256-0XUu1g/VTrklA3vCpX6HWr7sdW2eQupnelpFNSGcouM=";
+      sha256 = "sha256-hddW/cozboGw693q4k5f4+x9ccQFWFytXPUaBVkFnL4=";
     };
 
     buildInputs = base.buildInputs ++ [ zlib unzip libtommath libtomcrypt ];

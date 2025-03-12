@@ -1,77 +1,133 @@
-{ lib
-, home-assistant
+{
+  lib,
+  home-assistant,
 }:
 
 let
+  getComponentDeps = component: home-assistant.getPackages component home-assistant.python.pkgs;
+
   # some components' tests have additional dependencies
   extraCheckInputs = with home-assistant.python.pkgs; {
-    alexa = [ ha-av ];
-    camera = [ ha-av ];
-    cloud = [ mutagen ];
-    config = [ pydispatcher ];
-    generic = [ ha-av ];
-    google_translate = [ mutagen ];
-    lovelace = [ PyChromecast ];
-    nest = [ ha-av ];
-    onboarding = [ pymetno radios rpi-bad-power ];
-    version = [ aioaseko ];
-    voicerss = [ mutagen ];
-    yandextts = [ mutagen ];
-    zha = [ pydeconz ];
-    zwave_js = [ homeassistant-pyozw ];
+    axis = getComponentDeps "deconz";
+    gardena_bluetooth = getComponentDeps "husqvarna_automower_ble";
+    govee_ble = [
+      ibeacon-ble
+    ];
+    hassio = getComponentDeps "homeassistant_yellow";
+    homeassistant_hardware = getComponentDeps "zha";
+    homeassistant_sky_connect = getComponentDeps "zha";
+    homeassistant_yellow = getComponentDeps "zha";
+    husqvarna_automower_ble = getComponentDeps "gardena_bluetooth";
+    lovelace = [
+      pychromecast
+    ];
+    matrix = [
+      pydantic
+    ];
+    mopeka = getComponentDeps "switchbot";
+    onboarding = [
+      pymetno
+      radios
+      rpi-bad-power
+    ];
+    raspberry_pi = [
+      rpi-bad-power
+    ];
+    shelly = [
+      pyswitchbot
+    ];
+    songpal = [
+      isal
+    ];
+    swiss_public_transport = getComponentDeps "cookidoo";
+    system_log = [
+      isal
+    ];
+    tesla_fleet = getComponentDeps "teslemetry";
+    xiaomi_miio = [
+      arrow
+    ];
+    zeroconf = [
+      aioshelly
+    ];
+    zha = [
+      pydeconz
+    ];
   };
 
   extraDisabledTestPaths = {
-    tado = [
-      # tado/test_{climate,water_heater}.py: Tries to connect to my.tado.com
-      "tests/components/tado/test_climate.py"
-      "tests/components/tado/test_water_heater.py"
+    overseerr = [
+      # imports broken future module
+      "tests/components/overseerr/test_event.py"
     ];
   };
 
   extraDisabledTests = {
-    roku = [
-      # homeassistant.components.roku.media_player:media_player.py:428 Media type music is not supported with format None (mime: audio/x-matroska)
-      "test_services_play_media_audio"
+    shell_command = [
+      # tries to retrieve file from github
+      "test_non_text_stdout_capture"
+    ];
+    stream = [
+      # crashes with x265>=4.0
+      "test_h265_video_is_hvc1"
+    ];
+    websocket_api = [
+      # AssertionError: assert 'unknown_error' == 'template_error'
+      "test_render_template_with_timeout"
     ];
   };
 
   extraPytestFlagsArray = {
-    asuswrt = [
-      # asuswrt/test_config_flow.py: Sandbox network limitations, fails with unexpected error
-      "--deselect tests/components/asuswrt/test_config_flow.py::test_on_connect_failed"
+    dnsip = [
+      # Tries to resolve DNS entries
+      "--deselect tests/components/dnsip/test_config_flow.py::test_options_flow"
+    ];
+    jellyfin = [
+      # AssertionError: assert 'audio/x-flac' == 'audio/flac'
+      "--deselect tests/components/jellyfin/test_media_source.py::test_resolve"
+      "--deselect tests/components/jellyfin/test_media_source.py::test_audio_codec_resolve"
+      "--deselect tests/components/jellyfin/test_media_source.py::test_music_library"
+    ];
+    modem_callerid = [
+      # aioserial mock produces wrong state
+      "--deselect tests/components/modem_callerid/test_init.py::test_setup_entry"
     ];
   };
-in lib.listToAttrs (map (component: lib.nameValuePair component (
-  home-assistant.overridePythonAttrs (old: {
-    pname = "homeassistant-test-${component}";
+in
+lib.listToAttrs (
+  map (
+    component:
+    lib.nameValuePair component (
+      home-assistant.overridePythonAttrs (old: {
+        pname = "homeassistant-test-${component}";
+        pyproject = null;
+        format = "other";
 
-    dontBuild = true;
-    dontInstall = true;
+        dontBuild = true;
+        dontInstall = true;
 
-    checkInputs = old.checkInputs
-      ++ home-assistant.getPackages component home-assistant.python.pkgs
-      ++ extraCheckInputs.${component} or [ ];
+        nativeCheckInputs =
+          old.nativeCheckInputs
+          ++ home-assistant.getPackages component home-assistant.python.pkgs
+          ++ extraCheckInputs.${component} or [ ];
 
-    disabledTests = old.disabledTests ++ extraDisabledTests.${component} or [];
-    disabledTestPaths = old.disabledTestPaths ++ extraDisabledTestPaths.${component} or [ ];
+        disabledTests = old.disabledTests or [ ] ++ extraDisabledTests.${component} or [ ];
+        disabledTestPaths = old.disabledTestPaths or [ ] ++ extraDisabledTestPaths.${component} or [ ];
 
-    pytestFlagsArray = lib.remove "tests" old.pytestFlagsArray
-      ++ extraPytestFlagsArray.${component} or [ ]
-      ++ [ "tests/components/${component}" ];
+        # components are more often racy than the core
+        dontUsePytestXdist = true;
 
-    preCheck = old.preCheck + lib.optionalString (builtins.elem component [ "emulated_hue" "songpal" "system_log" ]) ''
-      patch -p1 < ${./patches/tests-mock-source-ip.patch}
-    '';
+        pytestFlagsArray =
+          lib.remove "tests" old.pytestFlagsArray
+          ++ extraPytestFlagsArray.${component} or [ ]
+          ++ [ "tests/components/${component}" ];
 
-    meta = old.meta // {
-      broken = lib.elem component [
-        "airtouch4"
-        "dnsip"
-        "zwave"
-      ];
-      # upstream only tests on Linux, so do we.
-      platforms = lib.platforms.linux;
-    };
-  })
-)) home-assistant.supportedComponentsWithTests)
+        meta = old.meta // {
+          broken = lib.elem component [ ];
+          # upstream only tests on Linux, so do we.
+          platforms = lib.platforms.linux;
+        };
+      })
+    )
+  ) home-assistant.supportedComponentsWithTests
+)

@@ -1,27 +1,37 @@
-{ lib
-, buildPythonPackage
-, fetchPypi
-, dulwich
-, pbr
-, sphinx
+{
+  lib,
+  buildPythonPackage,
+  fetchPypi,
+  dulwich,
+  pbr,
+  sphinx,
+  pythonAtLeast,
+  setuptools,
 }:
 
 buildPythonPackage rec {
   pname = "openstackdocstheme";
-  version = "2.3.1";
+  version = "3.4.1";
+  pyproject = true;
+
+  disabled = pythonAtLeast "3.13";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "sha256-zzWgAozJrYMFyGWzoDLYbeoY+IPlgzmVhnX7lgM6BXs=";
+    hash = "sha256-OPT2rGO967RlJ17iEm5oMuaxqZ8Y8ya+gKMzU0qaGzk=";
   };
 
   postPatch = ''
-    # only a small portion of the listed packages are actually needed for running the tests
-    # so instead of removing them one by one remove everything
-    rm test-requirements.txt
+    patchShebangs bin/
   '';
 
-  propagatedBuildInputs = [ dulwich pbr sphinx ];
+  build-system = [ setuptools ];
+
+  dependencies = [
+    dulwich
+    pbr
+    sphinx
+  ];
 
   # no tests
   doCheck = false;

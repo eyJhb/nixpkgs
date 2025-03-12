@@ -1,27 +1,26 @@
-{ lib
-, fetchPypi
-, buildPythonPackage
-, pythonOlder
+{
+  lib,
+  fetchPypi,
+  buildPythonPackage,
+  pythonOlder,
 }:
 
 buildPythonPackage rec {
   pname = "sabyenc3";
-  version = "5.1.1";
+  version = "5.4.4";
   format = "setuptools";
 
   disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    hash = "sha256-muqJCn5FcSp5KNZqfW433NCOxfj1DvFvlZPClmNkPR0=";
+    hash = "sha256-89ZfKnC8sT7xvq4P9rs7aa2uGElwNfjNT/5OWvGqL0E=";
   };
 
   # Tests are not included in pypi distribution
   doCheck = false;
 
-  pythonImportsCheck = [
-    "sabyenc3"
-  ];
+  pythonImportsCheck = [ "sabyenc3" ];
 
   meta = with lib; {
     description = "yEnc Decoding for Python 3";

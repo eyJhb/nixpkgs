@@ -37,8 +37,8 @@ in
 
         Specifying configFile will override this in its entirety.
 
-        See <link xlink:href="https://pomerium.io/reference/">the Pomerium
-        configuration reference</link> for more information about what to put
+        See [the Pomerium
+        configuration reference](https://pomerium.io/reference/) for more information about what to put
         here.
       '';
       default = {};
@@ -50,7 +50,7 @@ in
       default = null;
       description = ''
         Path to file containing secrets for Pomerium, in systemd
-        EnvironmentFile format. See the systemd.exec(5) man page.
+        EnvironmentFile format. See the {manpage}`systemd.exec(5)` man page.
       '';
     };
   };

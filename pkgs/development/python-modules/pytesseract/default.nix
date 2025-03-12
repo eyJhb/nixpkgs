@@ -1,31 +1,54 @@
-{ buildPythonPackage, fetchPypi, lib, pillow, tesseract, substituteAll, packaging }:
+{
+  buildPythonPackage,
+  fetchFromGitHub,
+  lib,
+  packaging,
+  pillow,
+  tesseract,
+  replaceVars,
+  pytestCheckHook,
+  setuptools,
+}:
 
 buildPythonPackage rec {
   pname = "pytesseract";
-  version = "0.3.9";
+  version = "0.3.13";
+  format = "pyproject";
 
-  src = fetchPypi {
-    inherit pname version;
-    sha256 = "sha256-fiuvx/SNG7cUQ85GM6VvXiGSWpjyIKNsM2KX7c0ZVtA=";
+  src = fetchFromGitHub {
+    owner = "madmaze";
+    repo = pname;
+    tag = "v${version}";
+    hash = "sha256-gQMeck6ojlIwyiOCBBhzHHrjQfBMelVksVGd+fyxWZk=";
   };
 
   patches = [
-    (substituteAll {
-      src = ./tesseract-binary.patch;
+    (replaceVars ./tesseract-binary.patch {
       drv = tesseract;
     })
   ];
 
-  buildInputs = [ tesseract ];
-  propagatedBuildInputs = [ pillow packaging ];
+  nativeBuildInputs = [ setuptools ];
 
-  # the package doesn't have any tests.
-  doCheck = false;
+  buildInputs = [ tesseract ];
+
+  propagatedBuildInputs = [
+    packaging
+    pillow
+  ];
+  disabledTests = [
+    # https://github.com/madmaze/pytesseract/pull/559
+    "incorrect_tessdata_dir"
+    "invalid_tessdata_dir"
+  ];
+
+  nativeCheckInputs = [ pytestCheckHook ];
 
   meta = with lib; {
     homepage = "https://pypi.org/project/pytesseract/";
     license = licenses.asl20;
-    description = "A Python wrapper for Google Tesseract";
-    maintainers = with maintainers; [ ma27 ];
+    description = "Python wrapper for Google Tesseract";
+    mainProgram = "pytesseract";
+    maintainers = [ ];
   };
 }

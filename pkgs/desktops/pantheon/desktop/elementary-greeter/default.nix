@@ -3,7 +3,7 @@
 , fetchFromGitHub
 , nix-update-script
 , linkFarm
-, substituteAll
+, replaceVars
 , elementary-greeter
 , pkg-config
 , meson
@@ -14,6 +14,7 @@
 , granite
 , libgee
 , libhandy
+, gnome-desktop
 , gnome-settings-daemon
 , mutter
 , elementary-icon-theme
@@ -22,31 +23,32 @@
 , nixos-artwork
 , lightdm
 , gdk-pixbuf
-, clutter-gtk
 , dbus
 , accountsservice
-, wrapGAppsHook
+, wayland-scanner
+, wrapGAppsHook3
 }:
 
 stdenv.mkDerivation rec {
   pname = "elementary-greeter";
-  version = "6.0.2";
+  version = "8.0.1";
 
   src = fetchFromGitHub {
     owner = "elementary";
     repo = "greeter";
     rev = version;
-    sha256 = "sha256-0chBM8JuCYgZXHneiSxSICZwBVm2Vgx+bas9wUjbnyg=";
+    sha256 = "sha256-T/tI8WRVbTLdolDYa98M2Vm26p0xhGiai74lXAlpQ8k=";
   };
 
   patches = [
     ./sysconfdir-install.patch
     # Needed until https://github.com/elementary/greeter/issues/360 is fixed
-    (substituteAll {
-      src = ./hardcode-fallback-background.patch;
+    (replaceVars ./hardcode-fallback-background.patch {
       default_wallpaper = "${nixos-artwork.wallpapers.simple-dark-gray.gnomeFilePath}";
     })
   ];
+
+  depsBuildBuild = [ pkg-config ];
 
   nativeBuildInputs = [
     desktop-file-utils
@@ -54,13 +56,14 @@ stdenv.mkDerivation rec {
     ninja
     pkg-config
     vala
-    wrapGAppsHook
+    wayland-scanner
+    wrapGAppsHook3
   ];
 
   buildInputs = [
     accountsservice
-    clutter-gtk # else we get could not generate cargs for mutter-clutter-2
     elementary-icon-theme
+    gnome-desktop
     gnome-settings-daemon
     gdk-pixbuf
     granite
@@ -72,7 +75,7 @@ stdenv.mkDerivation rec {
   ];
 
   mesonFlags = [
-    # A hook does this but after wrapGAppsHook so the files never get wrapped.
+    # A hook does this but after wrapGAppsHook3 so the files never get wrapped.
     "--sbindir=${placeholder "out"}/bin"
     # baked into the program for discovery of the greeter configuration
     "--sysconfdir=/etc"
@@ -109,9 +112,7 @@ stdenv.mkDerivation rec {
   '';
 
   passthru = {
-    updateScript = nix-update-script {
-      attrPath = "pantheon.${pname}";
-    };
+    updateScript = nix-update-script { };
 
     xgreeters = linkFarm "pantheon-greeter-xgreeters" [{
       path = "${elementary-greeter}/share/xgreeters/io.elementary.greeter.desktop";

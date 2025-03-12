@@ -1,69 +1,60 @@
-{ config, pkgs, lib, ... }:
-
-with lib;
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 
 let
+
   cfg = config.programs._1password-gui;
 
-in {
+in
+{
+  imports = [
+    (lib.mkRemovedOptionModule [ "programs" "_1password-gui" "gid" ] ''
+      A preallocated GID will be used instead.
+    '')
+  ];
+
   options = {
     programs._1password-gui = {
-      enable = mkEnableOption "The 1Password Desktop application with browser integration";
+      enable = lib.mkEnableOption "the 1Password GUI application";
 
-      groupId = mkOption {
-        type = types.int;
-        example = literalExpression "5000";
+      polkitPolicyOwners = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [ ];
+        example = lib.literalExpression ''["user1" "user2" "user3"]'';
         description = ''
-          The GroupID to assign to the onepassword group, which is needed for browser integration. The group ID must be 1000 or greater.
-          '';
+          A list of users who should be able to integrate 1Password with polkit-based authentication mechanisms.
+        '';
       };
 
-      polkitPolicyOwners = mkOption {
-        type = types.listOf types.str;
-        default = [];
-        example = literalExpression "[\"user1\" \"user2\" \"user3\"]";
-        description = ''
-          A list of users who should be able to integrate 1Password with polkit-based authentication mechanisms. By default, no users will have such access.
-          '';
-      };
-
-      package = mkOption {
-        type = types.package;
-        default = pkgs._1password-gui;
-        defaultText = literalExpression "pkgs._1password-gui";
-        example = literalExpression "pkgs._1password-gui";
-        description = ''
-          The 1Password derivation to use. This can be used to upgrade from the stable release that we keep in nixpkgs to the betas.
-          '';
+      package = lib.mkPackageOption pkgs "1Password GUI" {
+        default = [ "_1password-gui" ];
       };
     };
   };
 
-  config = let
-    package = cfg.package.override {
-      polkitPolicyOwners = cfg.polkitPolicyOwners;
-    };
-  in mkIf cfg.enable {
-    environment.systemPackages = [ package ];
-    users.groups.onepassword.gid = cfg.groupId;
+  config =
+    let
+      package = cfg.package.override {
+        polkitPolicyOwners = cfg.polkitPolicyOwners;
+      };
+    in
+    lib.mkIf cfg.enable {
+      environment.systemPackages = [ package ];
+      users.groups.onepassword.gid = config.ids.gids.onepassword;
 
-    security.wrappers = {
-      "1Password-BrowserSupport" =
-        { source = "${cfg.package}/share/1password/1Password-BrowserSupport";
+      security.wrappers = {
+        "1Password-BrowserSupport" = {
+          source = "${package}/share/1password/1Password-BrowserSupport";
           owner = "root";
           group = "onepassword";
           setuid = false;
           setgid = true;
         };
+      };
 
-      "1Password-KeyringHelper" =
-        { source = "${cfg.package}/share/1password/1Password-KeyringHelper";
-          owner = "root";
-          group = "onepassword";
-          setuid = true;
-          setgid = true;
-        };
     };
-
-  };
 }

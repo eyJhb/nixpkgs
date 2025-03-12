@@ -1,41 +1,66 @@
-{ lib
-, buildPythonPackage
-, callPackage
-, fetchPypi
-, appdirs
-, cryptography
-, dogpile-cache
-, jmespath
-, jsonpatch
-, keystoneauth1
-, munch
-, netifaces
-, os-service-types
-, pbr
-, pyyaml
-, requestsexceptions
+{
+  lib,
+  buildPythonPackage,
+  callPackage,
+  fetchPypi,
+  platformdirs,
+  cryptography,
+  dogpile-cache,
+  jmespath,
+  jsonpatch,
+  keystoneauth1,
+  munch,
+  openstackdocstheme,
+  os-service-types,
+  pbr,
+  psutil,
+  pyyaml,
+  requestsexceptions,
+  setuptools,
+  sphinxHook,
 }:
 
 buildPythonPackage rec {
   pname = "openstacksdk";
-  version = "0.61.0";
+  version = "4.4.0";
+  pyproject = true;
+
+  outputs = [
+    "out"
+    "man"
+  ];
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "3eed308871230f0c53a8f58b6c5a358b184080c6b2c6bc69ab088eea057aa127";
+    hash = "sha256-FXQ3Vj1k8/b+7BeW+9hVLVYnczJGF3jE2+dtGCj9MeA=";
   };
 
-  propagatedBuildInputs = [
-    appdirs
+  postPatch = ''
+    # Disable rsvgconverter not needed to build manpage
+    substituteInPlace doc/source/conf.py \
+      --replace-fail "'sphinxcontrib.rsvgconverter'," "#'sphinxcontrib.rsvgconverter',"
+  '';
+
+  nativeBuildInputs = [
+    openstackdocstheme
+    sphinxHook
+  ];
+
+  sphinxBuilders = [ "man" ];
+
+  build-system = [ setuptools ];
+
+  dependencies = [
+    platformdirs
     cryptography
     dogpile-cache
     jmespath
     jsonpatch
     keystoneauth1
     munch
-    netifaces
     os-service-types
     pbr
+    psutil
     requestsexceptions
     pyyaml
   ];
@@ -50,7 +75,8 @@ buildPythonPackage rec {
   pythonImportsCheck = [ "openstack" ];
 
   meta = with lib; {
-    description = "An SDK for building applications to work with OpenStack";
+    description = "SDK for building applications to work with OpenStack";
+    mainProgram = "openstack-inventory";
     homepage = "https://github.com/openstack/openstacksdk";
     license = licenses.asl20;
     maintainers = teams.openstack.members;

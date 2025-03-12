@@ -1,49 +1,94 @@
-{ lib, stdenv, patchelf, fetchurl, p7zip
-, nss, nspr, libusb1
-, qtbase, qtmultimedia, qtserialport
-, autoPatchelfHook, wrapQtAppsHook
+{
+  lib,
+  stdenv,
+  fetchurl,
+  p7zip,
+  nss,
+  nspr,
+  libusb1,
+  cups,
+  autoPatchelfHook,
+  libgpg-error,
+  e2fsprogs,
+  makeDesktopItem,
+  copyDesktopItems,
+  xorg,
+  libGL,
+  alsa-lib,
+  freetype,
+  fontconfig,
+  makeWrapper,
 }:
 
 stdenv.mkDerivation rec {
   pname = "lightburn";
-  version = "1.1.03";
+  version = "1.7.06";
+
+  src = fetchurl {
+    url = "https://release.lightburnsoftware.com/LightBurn/Release/LightBurn-v${version}/LightBurn-Linux64-v${version}.7z";
+    hash = "sha256-vvei+hfTfWAoLWjf7joMjaW7aL2RZg134M4XT6iW2tY=";
+  };
 
   nativeBuildInputs = [
     p7zip
     autoPatchelfHook
-    wrapQtAppsHook
+    copyDesktopItems
+    makeWrapper
   ];
-
-  src = fetchurl {
-    url = "https://github.com/LightBurnSoftware/deployment/releases/download/${version}/LightBurn-Linux64-v${version}.7z";
-    sha256 = "sha256-X7hAkzVqIABpyFokiYaMGZqSda69cKhKghFDWDEVOow=";
-  };
 
   buildInputs = [
-    nss nspr libusb1
-    qtbase qtmultimedia qtserialport
+    nss
+    nspr
+    libusb1
+    cups
+    libgpg-error
+    e2fsprogs
+    xorg.libX11
+    xorg.libxcb
+    libGL
+    alsa-lib
+    freetype
+    fontconfig
   ];
 
-  # We nuke the vendored Qt5 libraries that LightBurn ships and instead use our
-  # own.
   unpackPhase = ''
     7z x $src
-    rm -rf LightBurn/lib LightBurn/plugins
   '';
 
-  installPhase = ''
-    mkdir -p $out/share $out/bin
-    cp -ar LightBurn $out/share/LightBurn
-    ln -s $out/share/LightBurn/LightBurn $out/bin
+  desktopItems = [
+    (makeDesktopItem {
+      name = "lightburn";
+      exec = "lightburn";
+      icon = "lightburn";
+      genericName = "LightBurn";
+      desktopName = "LightBurn";
+    })
+  ];
 
-    wrapQtApp $out/bin/LightBurn
+  installPhase = ''
+    runHook preInstall
+
+    mkdir -p $out/opt
+    cp -ar LightBurn $out/opt/lightburn
+    install -Dm644 $out/opt/lightburn/LightBurn.png $out/share/pixmaps/lightburn.png
+
+    runHook postInstall
+  '';
+
+  postFixup = ''
+    mkdir $out/bin
+    makeWrapper $out/opt/lightburn/AppRun $out/bin/lightburn \
+      --unset QT_PLUGIN_PATH \
+      --unset QML2_IMPORT_PATH
   '';
 
   meta = {
     description = "Layout, editing, and control software for your laser cutter";
-    homepage = "https://lightburnsoftware.com/";
+    homepage = "https://lightburnsoftware.com";
+    sourceProvenance = with lib.sourceTypes; [ binaryNativeCode ];
     license = lib.licenses.unfree;
     maintainers = with lib.maintainers; [ q3k ];
     platforms = [ "x86_64-linux" ];
+    mainProgram = "lightburn";
   };
 }

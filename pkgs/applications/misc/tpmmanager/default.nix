@@ -1,21 +1,37 @@
-{ lib, stdenv, fetchFromGitHub, qt4, qmake4Hook, trousers }:
+{
+  lib,
+  stdenv,
+  fetchFromGitHub,
+  qtbase,
+  qmake,
+  wrapQtAppsHook,
+  trousers,
+}:
 
 stdenv.mkDerivation rec {
-  version = "0.8.1";
   pname = "tpmmanager";
+  version = "0.9.0";
 
   src = fetchFromGitHub {
     owner = "Rohde-Schwarz";
     repo = "TPMManager";
-    rev = "v${version}";
-    sha256 = "sha256-JKYG+I/tZ+0NDmHcIgKV6eGrjbPvPQKPo0sE/zBlLY4=";
+    tag = "v${version}";
+    hash = "sha256-FhdrUJQq4us6BT8CxgWqWiXnbl900204yjyS3nnQACU=";
   };
 
-  nativeBuildInputs = [ qmake4Hook ];
+  nativeBuildInputs = [
+    qmake
+    wrapQtAppsHook
+  ];
 
-  buildInputs = [ qt4 trousers ];
+  buildInputs = [
+    qtbase
+    trousers
+  ];
 
   installPhase = ''
+    runHook preInstall
+
     mkdir -p $out/bin
     install -Dpm755 -D bin/tpmmanager $out/bin/tpmmanager
 
@@ -29,13 +45,16 @@ stdenv.mkDerivation rec {
     Exec=$out/bin/tpmmanager
     Terminal=false
     EOF
-    '';
+
+    runHook postInstall
+  '';
 
   meta = {
     homepage = "https://projects.sirrix.com/trac/tpmmanager";
     description = "Tool for managing the TPM";
+    mainProgram = "tpmmanager";
     license = lib.licenses.gpl2;
-    maintainers = with lib.maintainers; [ tstrobel ];
-    platforms = with lib.platforms; linux;
+    maintainers = [ ];
+    platforms = lib.platforms.linux;
   };
 }

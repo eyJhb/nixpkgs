@@ -1,22 +1,27 @@
-{ lib, buildGoModule, fetchFromGitHub }:
+{
+  lib,
+  buildGoModule,
+  fetchFromGitHub,
+}:
 
 buildGoModule rec {
   pname = "pihole-exporter";
-  version = "0.2.0";
+  version = "1.0.0";
 
   src = fetchFromGitHub {
     owner = "eko";
     repo = pname;
     rev = "v${version}";
-    sha256 = "sha256-JxznxE4Pq1fhlt3l1jbGWD5eUg5VF0GmewkuSYECG0Y=";
+    sha256 = "sha256-Sum27hjs0Jvi1UWGeQcR8z9zmZ/I40uBFpKeHgHfFrA=";
   };
 
-  vendorSha256 = "sha256-jfpM192LtFGVgsVv+F+P8avTGD5c8I+7JFsn4oVoqr0=";
+  vendorHash = "sha256-7f/upTF3/w40wWGdcw0h3kOPlo8ZeyRna6FapnF2X0s=";
 
   meta = with lib; {
     description = "Prometheus exporter for PI-Hole's Raspberry PI ad blocker";
+    mainProgram = "pihole-exporter";
     homepage = "https://github.com/eko/pihole-exporter";
     license = licenses.mit;
-    maintainers = with maintainers; [ SuperSandro2000 ];
+    maintainers = [ ];
   };
 }

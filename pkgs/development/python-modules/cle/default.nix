@@ -1,59 +1,58 @@
-{ lib
-, buildPythonPackage
-, cffi
-, fetchFromGitHub
-, minidump
-, nose
-, pefile
-, pyelftools
-, pytestCheckHook
-, pythonOlder
-, pyvex
-, pyxbe
-, sortedcontainers
+{
+  lib,
+  archinfo,
+  buildPythonPackage,
+  cart,
+  cffi,
+  fetchFromGitHub,
+  pefile,
+  pyelftools,
+  pytestCheckHook,
+  pythonOlder,
+  pyvex,
+  setuptools,
+  sortedcontainers,
 }:
 
 let
   # The binaries are following the argr projects release cycle
-  version = "9.1.12332";
+  version = "9.2.141";
 
   # Binary files from https://github.com/angr/binaries (only used for testing and only here)
   binaries = fetchFromGitHub {
     owner = "angr";
     repo = "binaries";
-    rev = "v${version}";
-    sha256 = "1qlrxfj1n34xvwkac6mbcc7zmixxbp34fj7lkf0fvp7zcz1rpla1";
+    rev = "refs/tags/v${version}";
+    hash = "sha256-QrelXkl+hpiz+7Uwobx+ZY9I9lhCuhevpXq2JqJNj5c=";
   };
-
 in
 buildPythonPackage rec {
   pname = "cle";
   inherit version;
-  format = "setuptools";
+  pyproject = true;
 
-  disabled = pythonOlder "3.6";
+  disabled = pythonOlder "3.11";
 
   src = fetchFromGitHub {
     owner = "angr";
-    repo = pname;
-    rev = "v${version}";
-    hash = "sha256-xcj6Skzzmw5g+0KsBMLNOhRyXQA7nbgnc9YyfJLteCM=";
+    repo = "cle";
+    rev = "refs/tags/v${version}";
+    hash = "sha256-1l3wiyRhUuaw2eO+34lBcS2POlJoBVBuiOY6VoglD+A=";
   };
 
-  propagatedBuildInputs = [
+  build-system = [ setuptools ];
+
+  dependencies = [
+    archinfo
+    cart
     cffi
-    minidump
     pefile
     pyelftools
     pyvex
-    pyxbe
     sortedcontainers
   ];
 
-  checkInputs = [
-    nose
-    pytestCheckHook
-  ];
+  nativeCheckInputs = [ pytestCheckHook ];
 
   # Place test binaries in the right location (location is hard-coded in the tests)
   preCheck = ''
@@ -66,15 +65,16 @@ buildPythonPackage rec {
     "test_ppc_rel24_relocation"
     "test_ppc_addr16_ha_relocation"
     "test_ppc_addr16_lo_relocation"
-    # Binary not found, seems to be missing in the current binaries release
     "test_plt_full_relro"
     # Test fails
     "test_tls_pe_incorrect_tls_data_start"
+    "test_x86"
+    "test_x86_64"
+    # The required parts is not present on Nix
+    "test_remote_file_map"
   ];
 
-  pythonImportsCheck = [
-    "cle"
-  ];
+  pythonImportsCheck = [ "cle" ];
 
   meta = with lib; {
     description = "Python loader for many binary formats";

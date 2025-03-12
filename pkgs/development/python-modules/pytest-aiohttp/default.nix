@@ -1,48 +1,46 @@
-{ lib
-, buildPythonPackage
-, fetchPypi
-, fetchpatch
-, setuptools-scm
-, aiohttp
-, pytest
-, pytest-asyncio
-, pytestCheckHook
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+  setuptools,
+  setuptools-scm,
+  aiohttp,
+  pytest,
+  pytest-asyncio,
+  pytestCheckHook,
 }:
 
 buildPythonPackage rec {
   pname = "pytest-aiohttp";
-  version = "1.0.3";
+  version = "1.1.0";
+  pyproject = true;
 
-  src = fetchPypi {
-    inherit pname version;
-    hash = "sha256-DI/rSNyOuAhw4rFTrK9iu7zCB5d+vLdDZf/P4WrcnxU=";
+  __darwinAllowLocalNetworking = true;
+
+  src = fetchFromGitHub {
+    owner = "aio-libs";
+    repo = "pytest-aiohttp";
+    tag = "v${version}";
+    hash = "sha256-5xUY3SVaoZzCZE/qfAP4R49HbtBMYj5jMN5viLEzEkM=";
   };
 
-  patches = [
-    # https://github.com/aio-libs/pytest-aiohttp/pull/26
-    (fetchpatch {
-      name = "fix-tests-with-pytest-asyncio-0.18.0.patch";
-      url = "https://github.com/aio-libs/pytest-aiohttp/commit/97152c2dfdd368f799ec6bcb5fc315736a726f53.patch";
-      hash = "sha256-g7MTyCKUHnufOfrbhVV58WtfbGt1uXx8F7U9U+EaXfg=";
-    })
-  ];
-
-  nativeBuildInputs = [
+  build-system = [
+    setuptools
     setuptools-scm
   ];
 
-  propagatedBuildInputs = [
+  buildInputs = [ pytest ];
+
+  dependencies = [
     aiohttp
-    pytest
     pytest-asyncio
   ];
 
-  checkInputs = [
-    pytestCheckHook
-  ];
+  nativeCheckInputs = [ pytestCheckHook ];
 
   meta = with lib; {
     homepage = "https://github.com/aio-libs/pytest-aiohttp/";
+    changelog = "https://github.com/aio-libs/pytest-aiohttp/blob/${src.rev}/CHANGES.rst";
     description = "Pytest plugin for aiohttp support";
     license = licenses.asl20;
     maintainers = with maintainers; [ dotlambda ];

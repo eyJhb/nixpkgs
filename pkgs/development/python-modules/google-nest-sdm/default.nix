@@ -1,52 +1,58 @@
-{ lib
-, aiohttp
-, asynctest
-, buildPythonPackage
-, coreutils
-, fetchFromGitHub
-, google-auth
-, google-auth-oauthlib
-, google-cloud-pubsub
-, pytest-aiohttp
-, pytest-asyncio
-, pytestCheckHook
-, pythonOlder
-, requests_oauthlib
+{
+  lib,
+  aiohttp,
+  buildPythonPackage,
+  coreutils,
+  fetchFromGitHub,
+  google-auth,
+  google-auth-oauthlib,
+  google-cloud-pubsub,
+  mashumaro,
+  pytest-aiohttp,
+  pytest-asyncio,
+  pytestCheckHook,
+  pythonOlder,
+  pyyaml,
+  requests-oauthlib,
+  setuptools,
 }:
 
 buildPythonPackage rec {
   pname = "google-nest-sdm";
-  version = "1.8.0";
-  format = "setuptools";
+  version = "7.1.4";
+  pyproject = true;
 
-  disabled = pythonOlder "3.8";
+  disabled = pythonOlder "3.11";
 
   src = fetchFromGitHub {
     owner = "allenporter";
     repo = "python-google-nest-sdm";
-    rev = version;
-    sha256 = "sha256-oaUR/2G8dcQ5A4YZeLTSzyMNLI8a29pSoEtTdWvTVKE=";
+    tag = version;
+    hash = "sha256-wE28+GqZGIhg/+JOnyn2hXw5ia0yg3RLywb1PqgkXw0=";
   };
 
-  propagatedBuildInputs = [
+  build-system = [ setuptools ];
+
+  dependencies = [
     aiohttp
     google-auth
     google-auth-oauthlib
     google-cloud-pubsub
-    requests_oauthlib
+    mashumaro
+    pyyaml
+    requests-oauthlib
   ];
 
-  checkInputs = [
-    asynctest
+  __darwinAllowLocalNetworking = true;
+
+  nativeCheckInputs = [
     coreutils
     pytest-aiohttp
     pytest-asyncio
     pytestCheckHook
   ];
 
-  pythonImportsCheck = [
-    "google_nest_sdm"
-  ];
+  pythonImportsCheck = [ "google_nest_sdm" ];
 
   disabledTests = [
     "test_clip_preview_transcode"
@@ -56,7 +62,9 @@ buildPythonPackage rec {
   meta = with lib; {
     description = "Module for Google Nest Device Access using the Smart Device Management API";
     homepage = "https://github.com/allenporter/python-google-nest-sdm";
+    changelog = "https://github.com/allenporter/python-google-nest-sdm/releases/tag/${src.tag}";
     license = licenses.asl20;
     maintainers = with maintainers; [ fab ];
+    mainProgram = "google_nest";
   };
 }

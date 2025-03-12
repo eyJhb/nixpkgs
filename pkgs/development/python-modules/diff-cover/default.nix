@@ -1,44 +1,48 @@
-{ lib
-, buildPythonPackage
-, chardet
-, fetchPypi
-, jinja2
-, jinja2_pluralize
-, pluggy
-, pycodestyle
-, pyflakes
-, pygments
-, pylint
-, pytest-datadir
-, pytest-mock
-, pytestCheckHook
-, pythonOlder
-, tomli
+{
+  lib,
+  buildPythonPackage,
+  chardet,
+  fetchPypi,
+  jinja2,
+  jinja2-pluralize,
+  pluggy,
+  poetry-core,
+  pycodestyle,
+  pyflakes,
+  pygments,
+  pylint,
+  pytest-datadir,
+  pytest-mock,
+  pytestCheckHook,
+  pythonOlder,
+  tomli,
 }:
 
 buildPythonPackage rec {
   pname = "diff-cover";
-  version = "6.4.5";
-  format = "setuptools";
+  version = "9.2.3";
+  pyproject = true;
 
-  disabled = pythonOlder "3.6";
+  disabled = pythonOlder "3.9";
 
   src = fetchPypi {
     pname = "diff_cover";
     inherit version;
-    sha256 = "sha256-qUuMHBfcJEmJF/con+ODtFfYrU7yo//KgKiSpByLWKY=";
+    hash = "sha256-NC6SEo5iNrGt7i3bTmy8HUcEZcFIKc/GTEza5YERXzs=";
   };
 
-  propagatedBuildInputs = [
+  build-system = [ poetry-core ];
+
+  dependencies = [
     chardet
     jinja2
-    jinja2_pluralize
+    jinja2-pluralize
     pluggy
     pygments
     tomli
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     pycodestyle
     pyflakes
     pylint
@@ -50,17 +54,19 @@ buildPythonPackage rec {
   disabledTests = [
     # Tests check for flake8
     "file_does_not_exist"
-    # AssertionError: assert '.c { color:...
+    # Comparing console output doesn't work reliable
+    "console"
+    # Assertion failure
+    "test_html_with_external_css"
     "test_style_defs"
   ];
 
-  pythonImportsCheck = [
-    "diff_cover"
-  ];
+  pythonImportsCheck = [ "diff_cover" ];
 
   meta = with lib; {
     description = "Automatically find diff lines that need test coverage";
     homepage = "https://github.com/Bachmann1234/diff-cover";
+    changelog = "https://github.com/Bachmann1234/diff_cover/releases/tag/v${version}";
     license = licenses.asl20;
     maintainers = with maintainers; [ dzabraev ];
   };

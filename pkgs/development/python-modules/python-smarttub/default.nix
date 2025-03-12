@@ -1,53 +1,51 @@
-{ lib
-, aiohttp
-, aresponses
-, buildPythonPackage
-, fetchFromGitHub
-, inflection
-, pyjwt
-, pytest-asyncio
-, pytestCheckHook
-, python-dateutil
-, pythonOlder
+{
+  lib,
+  aiohttp,
+  aresponses,
+  buildPythonPackage,
+  fetchFromGitHub,
+  inflection,
+  pyjwt,
+  pytest-asyncio,
+  pytestCheckHook,
+  python-dateutil,
+  pythonOlder,
+  setuptools,
 }:
 
 buildPythonPackage rec {
   pname = "python-smarttub";
-  version = "0.0.30";
-  format = "setuptools";
+  version = "0.0.39";
+  pyproject = true;
 
   disabled = pythonOlder "3.8";
 
   src = fetchFromGitHub {
     owner = "mdz";
-    repo = pname;
-    rev = "v${version}";
-    sha256 = "sha256-PzmE0j/sas1Dc/U022dS3krROm292xJlL37+EWPEs+g=";
+    repo = "python-smarttub";
+    tag = "v${version}";
+    hash = "sha256-yZrBFUsablu67gfIsWBYc/0k8J5zU1mrWD8kzuNkT+U=";
   };
 
-  propagatedBuildInputs = [
+  build-system = [ setuptools ];
+
+  dependencies = [
     aiohttp
     inflection
     pyjwt
     python-dateutil
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     aresponses
     pytest-asyncio
     pytestCheckHook
   ];
 
-  postPatch = ''
-    substituteInPlace setup.py \
-      --replace "pyjwt~=2.1.0" "pyjwt>=2.1.0"
-  '';
-
-  pythonImportsCheck = [
-    "smarttub"
-  ];
+  pythonImportsCheck = [ "smarttub" ];
 
   meta = with lib; {
+    changelog = "https://github.com/mdz/python-smarttub/releases/tag/v${version}";
     description = "Python API for SmartTub enabled hot tubs";
     homepage = "https://github.com/mdz/python-smarttub";
     license = with licenses; [ mit ];

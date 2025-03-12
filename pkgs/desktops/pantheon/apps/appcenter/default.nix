@@ -1,79 +1,62 @@
-{ lib
-, stdenv
-, nix-update-script
-, appstream
-, appstream-glib
-, dbus
-, desktop-file-utils
-, fetchFromGitHub
-, fetchpatch
-, flatpak
-, gettext
-, glib
-, granite
-, gtk3
-, json-glib
-, libgee
-, libhandy
-, libsoup
-, libxml2
-, meson
-, ninja
-, packagekit
-, pkg-config
-, python3
-, vala
-, polkit
-, wrapGAppsHook
+{
+  stdenv,
+  lib,
+  fetchFromGitHub,
+  meson,
+  ninja,
+  pkg-config,
+  sassc,
+  vala,
+  wrapGAppsHook4,
+  appstream,
+  dbus,
+  flatpak,
+  glib,
+  granite7,
+  gtk4,
+  json-glib,
+  libadwaita,
+  libgee,
+  libportal-gtk4,
+  libsoup_3,
+  libxml2,
+  polkit,
+  nix-update-script,
 }:
 
 stdenv.mkDerivation rec {
   pname = "appcenter";
-  version = "3.9.1";
+  version = "8.1.0";
 
   src = fetchFromGitHub {
     owner = "elementary";
     repo = pname;
     rev = version;
-    sha256 = "sha256-xktIHQHmz5gh72NEz9UQ9fMvBlj1BihWxHgxsHmTIB0=";
+    hash = "sha256-jVMXSy83z4zaG1YtCPRGvj1yl6wa5MJYtNp4XIsIY1k=";
   };
 
-  patches = [
-    # Fix AppStream.PoolFlags being renamed
-    # Though the API break has been fixed in latest appstream,
-    # let's use the non-deprecated version anyway.
-    # https://github.com/elementary/appcenter/pull/1794
-    (fetchpatch {
-      url = "https://github.com/elementary/appcenter/commit/84bc6400713484aa9365f0ba73f59c495da3f08b.patch";
-      sha256 = "sha256-HNRCJ/5mRbEVjCq9nrXtdQOOk1Jj5jalApkghD8ecpk=";
-    })
-  ];
-
   nativeBuildInputs = [
-    appstream-glib
-    dbus # for pkg-config
-    desktop-file-utils
-    gettext
     meson
     ninja
     pkg-config
-    python3
+    sassc
     vala
-    wrapGAppsHook
+    wrapGAppsHook4
   ];
 
   buildInputs = [
     appstream
+    dbus
     flatpak
     glib
-    granite
-    gtk3
+    granite7
+    gtk4
     json-glib
+    libadwaita
     libgee
-    libhandy
-    libsoup
+    libportal-gtk4
+    libsoup_3
     libxml2
-    packagekit
     polkit
   ];
 
@@ -82,20 +65,13 @@ stdenv.mkDerivation rec {
     "-Dcurated=false"
   ];
 
-  postPatch = ''
-    chmod +x meson/post_install.py
-    patchShebangs meson/post_install.py
-  '';
-
   passthru = {
-    updateScript = nix-update-script {
-      attrPath = "pantheon.${pname}";
-    };
+    updateScript = nix-update-script { };
   };
 
   meta = with lib; {
     homepage = "https://github.com/elementary/appcenter";
-    description = "An open, pay-what-you-want app store for indie developers, designed for elementary OS";
+    description = "Open, pay-what-you-want app store for indie developers, designed for elementary OS";
     license = licenses.gpl3Plus;
     platforms = platforms.linux;
     maintainers = teams.pantheon.members;

@@ -1,40 +1,77 @@
-{ lib
-, buildPythonPackage
-, fetchPypi
-, pythonOlder
-, setuptools-scm
-, pytestCheckHook
+{
+  lib,
+  aioquic,
+  buildPythonPackage,
+  cacert,
+  cryptography,
+  curio,
+  fetchPypi,
+  h2,
+  httpcore,
+  httpx,
+  idna,
+  hatchling,
+  pytestCheckHook,
+  pythonOlder,
+  requests,
+  requests-toolbelt,
+  sniffio,
+  trio,
 }:
 
 buildPythonPackage rec {
   pname = "dnspython";
-  version = "2.2.0";
-  disabled = pythonOlder "3.6";
+  version = "2.7.0";
+  format = "pyproject";
+
+  disabled = pythonOlder "3.9";
 
   src = fetchPypi {
     inherit pname version;
-    extension = "tar.gz";
-    sha256 = "1mi6l2n766y1gic3x1swp2jk2nr7wbkb191qinwhddnh6bh534z7";
+    hash = "sha256-zpxDLtoNyRz2GKXO3xpOFCZRGWu80sgOie1akH5c+vE=";
   };
 
-  checkInputs = [
-    pytestCheckHook
-  ];
+  nativeBuildInputs = [ hatchling ];
+
+  optional-dependencies = {
+    DOH = [
+      httpx
+      h2
+      requests
+      requests-toolbelt
+      httpcore
+    ];
+    IDNA = [ idna ];
+    DNSSEC = [ cryptography ];
+    trio = [ trio ];
+    curio = [
+      curio
+      sniffio
+    ];
+    DOQ = [ aioquic ];
+  };
+
+  nativeCheckInputs = [ pytestCheckHook ];
+
+  checkInputs = [ cacert ] ++ optional-dependencies.DNSSEC;
 
   disabledTests = [
     # dns.exception.SyntaxError: protocol not found
     "test_misc_good_WKS_text"
   ];
 
-  nativeBuildInputs = [
-    setuptools-scm
-  ];
+  # disable network on all builds (including darwin)
+  # see https://github.com/NixOS/nixpkgs/issues/356803
+  preCheck = ''
+    export NO_INTERNET=1
+  '';
 
   pythonImportsCheck = [ "dns" ];
 
   meta = with lib; {
-    description = "A DNS toolkit for Python";
+    description = "DNS toolkit for Python";
     homepage = "https://www.dnspython.org";
+    changelog = "https://github.com/rthalley/dnspython/blob/v${version}/doc/whatsnew.rst";
     license = with licenses; [ isc ];
     maintainers = with maintainers; [ gador ];
   };

@@ -1,62 +1,67 @@
-{ lib
-, buildPythonPackage
-, fetchPypi
-, boto3
-, cryptography
-, eventlet
-, greenlet
-, iana-etc
-, libredirect
-, lxml
-, mock
-, netifaces
-, pastedeploy
-, pbr
-, pyeclib
-, requests
-, setuptools
-, six
-, stestr
-, swiftclient
-, xattr
+{
+  lib,
+  buildPythonPackage,
+  fetchPypi,
+  boto3,
+  cryptography,
+  eventlet,
+  greenlet,
+  iana-etc,
+  installShellFiles,
+  libredirect,
+  lxml,
+  mock,
+  pastedeploy,
+  pbr,
+  pyeclib,
+  requests,
+  setuptools,
+  six,
+  stestr,
+  swiftclient,
+  xattr,
 }:
 
 buildPythonPackage rec {
   pname = "swift";
-  version = "2.29.0";
+  version = "2.34.0";
+  pyproject = true;
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "sha256-sGHARvi1PAFajz82GAegDVpy6A98QEyMfrDHZjNtDGQ=";
+    hash = "sha256-ZvdWWvPUdZIEadxV0nhqgTXhgJJu+hD1LnYCAP+9gpM=";
   };
 
-  postPatch = ''
-    # files requires boto which is incompatible with python 3.9
-    rm test/functional/s3api/{__init__.py,s3_test_client.py}
-  '';
+  nativeBuildInputs = [ installShellFiles ];
 
-  nativeBuildInputs = [ pbr ];
+  build-system = [
+    pbr
+    setuptools
+  ];
 
-  propagatedBuildInputs = [
+  dependencies = [
     cryptography
     eventlet
     greenlet
     lxml
-    netifaces
     pastedeploy
     pyeclib
     requests
-    setuptools
     six
     xattr
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     boto3
+    libredirect.hook
     mock
     stestr
     swiftclient
   ];
+
+  postInstall = ''
+    installManPage doc/manpages/*
+  '';
 
   # a lot of tests currently fail while establishing a connection
   doCheck = false;
@@ -64,7 +69,6 @@ buildPythonPackage rec {
   checkPhase = ''
     echo "nameserver 127.0.0.1" > resolv.conf
     export NIX_REDIRECTS=/etc/protocols=${iana-etc}/etc/protocols:/etc/resolv.conf=$(realpath resolv.conf)
-    export LD_PRELOAD=${libredirect}/lib/libredirect.so
 
     export SWIFT_TEST_CONFIG_FILE=test/sample.conf
 

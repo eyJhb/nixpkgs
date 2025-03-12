@@ -1,42 +1,55 @@
-{ lib
-, buildPythonPackage
-, commentjson
-, cryptography
-, fetchFromGitHub
-, poetry-core
-, pytest-aiohttp
-, pytestCheckHook
-, pythonOlder
-, zeroconf
+{
+  lib,
+  buildPythonPackage,
+  aiocoap,
+  aiohappyeyeballs,
+  async-interrupt,
+  bleak,
+  bleak-retry-connector,
+  chacha20poly1305,
+  chacha20poly1305-reuseable,
+  commentjson,
+  cryptography,
+  fetchFromGitHub,
+  orjson,
+  poetry-core,
+  pytest-aiohttp,
+  pytestCheckHook,
+  pythonOlder,
+  zeroconf,
 }:
 
 buildPythonPackage rec {
   pname = "aiohomekit";
-  version = "0.7.16";
-  format = "pyproject";
+  version = "3.2.8";
+  pyproject = true;
 
-  disabled = pythonOlder "3.7";
+  disabled = pythonOlder "3.10";
 
   src = fetchFromGitHub {
     owner = "Jc2k";
-    repo = pname;
-    rev = version;
-    sha256 = "sha256-dakxPhnI1m6KiOj6oQkfQ0UVA7NEBTHFGYnF6L6c8Ck=";
+    repo = "aiohomekit";
+    tag = version;
+    hash = "sha256-b197P2hTk6lhLKm+4VvyvyPZDqb7NqO0aqoIf3BQBfs=";
   };
 
-  nativeBuildInputs = [
-    poetry-core
-  ];
+  build-system = [ poetry-core ];
 
-  propagatedBuildInputs = [
+  dependencies = [
+    aiocoap
+    aiohappyeyeballs
+    async-interrupt
+    bleak
+    bleak-retry-connector
+    chacha20poly1305
+    chacha20poly1305-reuseable
     commentjson
     cryptography
+    orjson
     zeroconf
   ];
 
-  doCheck = lib.versionAtLeast pytest-aiohttp.version "1.0.0";
-
-  checkInputs = [
+  nativeCheckInputs = [
     pytest-aiohttp
     pytestCheckHook
   ];
@@ -46,9 +59,7 @@ buildPythonPackage rec {
     "tests/test_ip_pairing.py"
   ];
 
-  pythonImportsCheck = [
-    "aiohomekit"
-  ];
+  pythonImportsCheck = [ "aiohomekit" ];
 
   meta = with lib; {
     description = "Python module that implements the HomeKit protocol";
@@ -57,7 +68,9 @@ buildPythonPackage rec {
       Homekit accessories.
     '';
     homepage = "https://github.com/Jc2k/aiohomekit";
-    license = with licenses; [ asl20 ];
+    changelog = "https://github.com/Jc2k/aiohomekit/releases/tag/${version}";
+    license = licenses.asl20;
     maintainers = with maintainers; [ fab ];
+    mainProgram = "aiohomekitctl";
   };
 }

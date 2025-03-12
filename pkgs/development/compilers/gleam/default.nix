@@ -1,27 +1,54 @@
-{ lib, stdenv, rustPlatform, fetchFromGitHub, pkg-config, openssl, Security, libiconv }:
+{
+  lib,
+  stdenv,
+  rustPlatform,
+  fetchFromGitHub,
+  git,
+  pkg-config,
+  openssl,
+  erlang,
+  Security,
+  nix-update-script,
+  SystemConfiguration,
+}:
 
 rustPlatform.buildRustPackage rec {
   pname = "gleam";
-  version = "0.20.1";
+  version = "1.8.1";
 
   src = fetchFromGitHub {
     owner = "gleam-lang";
     repo = pname;
-    rev = "v${version}";
-    sha256 = "sha256-AK+eb0eJyI7ALn7sg0wz4GzHthxrJWd1PVT5bL9LKWA=";
+    tag = "v${version}";
+    hash = "sha256-Qt2VQhbiNNORrGUR5LHeBb0q/EIqPNPz/adljj6xpS4=";
   };
 
-  nativeBuildInputs = [ pkg-config ];
+  nativeBuildInputs = [
+    git
+    pkg-config
+  ];
 
-  buildInputs = [ openssl ] ++
-    lib.optionals stdenv.isDarwin [ Security libiconv ];
+  buildInputs =
+    [
+      openssl
+      erlang
+    ]
+    ++ lib.optionals stdenv.hostPlatform.isDarwin [
+      Security
+      SystemConfiguration
+    ];
 
-  cargoSha256 = "sha256-kFTAPbP42sbhsvP069ua0ys1Dw7W+Gdsv2YaGrzorIk=";
+  useFetchCargoVendor = true;
+  cargoHash = "sha256-7oawxv1s8BJsOxGuADKjf4XqJ/UT+zYOrPQCbQljArM=";
+
+  passthru.updateScript = nix-update-script { };
 
   meta = with lib; {
-    description = "A statically typed language for the Erlang VM";
+    description = "Statically typed language for the Erlang VM";
+    mainProgram = "gleam";
     homepage = "https://gleam.run/";
+    changelog = "https://github.com/gleam-lang/gleam/blob/v${version}/CHANGELOG.md";
     license = licenses.asl20;
-    maintainers = teams.beam.members;
+    maintainers = teams.beam.members ++ [ lib.maintainers.philtaken ];
   };
 }

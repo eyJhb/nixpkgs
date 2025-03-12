@@ -2,7 +2,8 @@
 , stdenv
 , fetchFromGitHub
 , nix-update-script
-, wrapGAppsHook
+, wayland-scanner
+, wrapGAppsHook3
 , pkg-config
 , meson
 , ninja
@@ -13,26 +14,29 @@
 , granite
 , gettext
 , mutter
-, mesa
+, wayland
 , json-glib
-, python3
 , elementary-gtk-theme
 , elementary-icon-theme
 }:
 
 stdenv.mkDerivation rec {
   pname = "wingpanel";
-  version = "3.0.2";
+  version = "8.0.2";
 
   src = fetchFromGitHub {
     owner = "elementary";
     repo = pname;
     rev = version;
-    sha256 = "sha256-WvkQx+9YjKCINpyVg8KjCV0GAb0rJfblSFaO14/4oas=";
+    sha256 = "sha256-WUl6O3Mtw8Blsxe4Gm7NwRQXFurTNyOv+ZO1Fm1SkVg=";
   };
 
   patches = [
     ./indicators.patch
+  ];
+
+  depsBuildBuild = [
+    pkg-config
   ];
 
   nativeBuildInputs = [
@@ -40,9 +44,9 @@ stdenv.mkDerivation rec {
     meson
     ninja
     pkg-config
-    python3
     vala
-    wrapGAppsHook
+    wayland-scanner
+    wrapGAppsHook3
   ];
 
   buildInputs = [
@@ -53,13 +57,8 @@ stdenv.mkDerivation rec {
     json-glib
     libgee
     mutter
-    mesa # for libEGL
+    wayland
   ];
-
-  postPatch = ''
-    chmod +x meson/post_install.py
-    patchShebangs meson/post_install.py
-  '';
 
   preFixup = ''
     gappsWrapperArgs+=(
@@ -72,13 +71,11 @@ stdenv.mkDerivation rec {
   '';
 
   passthru = {
-    updateScript = nix-update-script {
-      attrPath = "pantheon.${pname}";
-    };
+    updateScript = nix-update-script { };
   };
 
   meta = with lib; {
-    description = "The extensible top panel for Pantheon";
+    description = "Extensible top panel for Pantheon";
     longDescription = ''
       Wingpanel is an empty container that accepts indicators as extensions,
       including the applications menu.

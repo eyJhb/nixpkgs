@@ -1,78 +1,90 @@
-{ callPackage, lib, fetchurl, fetchpatch, fetchFromGitHub, autoreconfHook }:
+{
+  callPackage,
+  lib,
+  fetchurl,
+  fetchpatch,
+  autoreconfHook,
+}:
 let
   common = opts: callPackage (import ./common.nix opts) { };
 in
 {
-
   openssh = common rec {
     pname = "openssh";
-    version = "8.8p1";
+    version = "9.9p2";
 
     src = fetchurl {
       url = "mirror://openbsd/OpenSSH/portable/openssh-${version}.tar.gz";
-      sha256 = "1s8z6f7mi1pwsl79cqai8cr350m5lf2ifcxff57wx6mvm478k425";
+      hash = "sha256-karbYD4IzChe3fll4RmdAlhfqU2ZTWyuW0Hhch4hVnM=";
     };
 
     extraPatches = [ ./ssh-keysign-8.5.patch ];
-    extraMeta.maintainers = with lib.maintainers; [ das_j ];
+    extraMeta.maintainers = lib.teams.helsinki-systems.members ++ [ lib.maintainers.philiptaron ];
   };
 
   openssh_hpn = common rec {
     pname = "openssh-with-hpn";
-    version = "8.9p1";
+    version = "9.9p2";
     extraDesc = " with high performance networking patches";
 
     src = fetchurl {
       url = "mirror://openbsd/OpenSSH/portable/openssh-${version}.tar.gz";
-      sha256 = "1ry5prcax0134v6srkgznpl9ch5snkgq7yvjqvd8c5mbnxa7cjgx";
+      hash = "sha256-karbYD4IzChe3fll4RmdAlhfqU2ZTWyuW0Hhch4hVnM=";
+    };
+
+    extraPatches =
+      let
+        url = "https://raw.githubusercontent.com/freebsd/freebsd-ports/7ba88c964b6e5724eec462021d984da3989e6a08/security/openssh-portable/files/extra-patch-hpn";
+      in
+      [
+        ./ssh-keysign-8.5.patch
+
+        # HPN Patch from FreeBSD ports
+        (fetchpatch {
+          name = "ssh-hpn-wo-channels.patch";
+          inherit url;
+          stripLen = 1;
+          excludes = [ "channels.c" ];
+          hash = "sha256-zk7t6FNzTE+8aDU4QuteR1x0W3O2gjIQmeCkTNbaUfA=";
+        })
+
+        (fetchpatch {
+          name = "ssh-hpn-channels.patch";
+          inherit url;
+          extraPrefix = "";
+          includes = [ "channels.c" ];
+          hash = "sha256-pDLUbjv5XIyByEbiRAXC3WMUPKmn15af1stVmcvr7fE=";
+        })
+      ];
+
+    extraNativeBuildInputs = [ autoreconfHook ];
+
+    extraConfigureFlags = [ "--with-hpn" ];
+    extraMeta = {
+      maintainers = with lib.maintainers; [ abbe ];
+    };
+  };
+
+  openssh_gssapi = common rec {
+    pname = "openssh-with-gssapi";
+    version = "9.9p2";
+    extraDesc = " with GSSAPI support";
+
+    src = fetchurl {
+      url = "mirror://openbsd/OpenSSH/portable/openssh-${version}.tar.gz";
+      hash = "sha256-karbYD4IzChe3fll4RmdAlhfqU2ZTWyuW0Hhch4hVnM=";
     };
 
     extraPatches = [
       ./ssh-keysign-8.5.patch
 
-      # HPN Patch from FreeBSD ports
-      (fetchpatch {
-        name = "ssh-hpn.patch";
-        url = "https://raw.githubusercontent.com/freebsd/freebsd-ports/ae66cffc19f357cbd51d5841c9b110a9ffd63e32/security/openssh-portable/files/extra-patch-hpn";
-        stripLen = 1;
-        sha256 = "sha256-p3CmMqTgrqFZUo4ZuqaPLczAhjmPufkCvptVW5dI+MI=";
-      })
-    ];
-
-    extraNativeBuildInputs = [ autoreconfHook ];
-
-    extraConfigureFlags = [ "--with-hpn" ];
-    extraMeta.maintainers = with lib.maintainers; [ abbe ];
-  };
-
-  openssh_gssapi = common rec {
-    pname = "openssh-with-gssapi";
-    version = "8.4p1";
-    extraDesc = " with GSSAPI support";
-
-    src = fetchurl {
-      url = "mirror://openbsd/OpenSSH/portable/openssh-${version}.tar.gz";
-      sha256 = "091b3pxdlj47scxx6kkf4agkx8c8sdacdxx8m1dw1cby80pd40as";
-    };
-
-    extraPatches = [
-      ./ssh-keysign-8.4.patch
-
-      # See https://github.com/openssh/openssh-portable/pull/206
-      ./ssh-copy-id-fix-eof.patch
-
       (fetchpatch {
         name = "openssh-gssapi.patch";
-        url = "https://salsa.debian.org/ssh-team/openssh/raw/debian/1%25${version}-2/debian/patches/gssapi.patch";
-        sha256 = "1z1ckzimlkm1dmr9f5fqjnjg28gsqcwx6xka0klak857548d2lp2";
+        url = "https://salsa.debian.org/ssh-team/openssh/raw/debian/1%25${version}-1/debian/patches/gssapi.patch";
+        hash = "sha256-JyOXA8Al8IFLdndJQ1LO+r4hJqtXjz1NHwOPiSAQkE8=";
       })
     ];
 
     extraNativeBuildInputs = [ autoreconfHook ];
-
-    extraMeta.knownVulnerabilities = [
-      "CVE-2021-28041"
-      "CVE-2021-41617"
-    ];
   };
 }

@@ -5,11 +5,14 @@ with lib;
 let
   cfg = config.services.soju;
   stateDir = "/var/lib/soju";
-  listenCfg = concatMapStringsSep "\n" (l: "listen ${l}") cfg.listen;
+  runtimeDir = "/run/soju";
+  listen = cfg.listen
+    ++ optional cfg.adminSocket.enable "unix+admin://${runtimeDir}/admin";
+  listenCfg = concatMapStringsSep "\n" (l: "listen ${l}") listen;
   tlsCfg = optionalString (cfg.tlsCertificate != null)
     "tls ${cfg.tlsCertificate} ${cfg.tlsCertificateKey}";
   logCfg = optionalString cfg.enableMessageLogging
-    "log fs ${stateDir}/logs";
+    "message-store fs ${stateDir}/logs";
 
   configFile = pkgs.writeText "soju.conf" ''
     ${listenCfg}
@@ -22,6 +25,10 @@ let
 
     ${cfg.extraConfig}
   '';
+
+  sojuctl = pkgs.writeShellScriptBin "sojuctl" ''
+    exec ${lib.getExe' cfg.package "sojuctl"} --config ${cfg.configFile} "$@"
+  '';
 in
 {
   ###### interface
@@ -29,14 +36,15 @@ in
   options.services.soju = {
     enable = mkEnableOption "soju";
 
+    package = mkPackageOption pkgs "soju" { };
+
     listen = mkOption {
       type = types.listOf types.str;
       default = [ ":6697" ];
       description = ''
         Where soju should listen for incoming connections. See the
-        <literal>listen</literal> directive in
-        <citerefentry><refentrytitle>soju</refentrytitle>
-        <manvolnum>1</manvolnum></citerefentry>.
+        `listen` directive in
+        {manpage}`soju(1)`.
       '';
     };
 
@@ -49,12 +57,14 @@ in
 
     tlsCertificate = mkOption {
       type = types.nullOr types.path;
+      default = null;
       example = "/var/host.cert";
       description = "Path to server TLS certificate.";
     };
 
     tlsCertificateKey = mkOption {
       type = types.nullOr types.path;
+      default = null;
       example = "/var/host.key";
       description = "Path to server TLS certificate key.";
     };
@@ -65,14 +75,21 @@ in
       description = "Whether to enable message logging.";
     };
 
+    adminSocket.enable = mkOption {
+      type = types.bool;
+      default = true;
+      description = ''
+        Listen for admin connections from sojuctl at /run/soju/admin.
+      '';
+    };
+
     httpOrigins = mkOption {
       type = types.listOf types.str;
       default = [];
       description = ''
         List of allowed HTTP origins for WebSocket listeners. The parameters are
         interpreted as shell patterns, see
-        <citerefentry><refentrytitle>glob</refentrytitle>
-        <manvolnum>7</manvolnum></citerefentry>.
+        {manpage}`glob(7)`.
       '';
     };
 
@@ -90,25 +107,50 @@ in
     extraConfig = mkOption {
       type = types.lines;
       default = "";
-      description = "Lines added verbatim to the configuration file.";
+      description = "Lines added verbatim to the generated configuration file.";
+    };
+
+    configFile = mkOption {
+      type = types.path;
+      default = configFile;
+      defaultText = "Config file generated from other options.";
+      description = ''
+        Path to config file. If this option is set, it will override any
+        configuration done using other options, including {option}`extraConfig`.
+      '';
+      example = literalExpression "./soju.conf";
     };
   };
 
   ###### implementation
 
   config = mkIf cfg.enable {
+    assertions = [
+      {
+        assertion = (cfg.tlsCertificate != null) == (cfg.tlsCertificateKey != null);
+        message = ''
+          services.soju.tlsCertificate and services.soju.tlsCertificateKey
+          must both be specified to enable TLS.
+        '';
+      }
+    ];
+
+    environment.systemPackages = [ sojuctl ];
+
     systemd.services.soju = {
       description = "soju IRC bouncer";
       wantedBy = [ "multi-user.target" ];
+      wants = [ "network-online.target" ];
       after = [ "network-online.target" ];
       serviceConfig = {
         DynamicUser = true;
         Restart = "always";
-        ExecStart = "${pkgs.soju}/bin/soju -config ${configFile}";
+        ExecStart = "${lib.getExe' cfg.package "soju"} -config ${cfg.configFile}";
         StateDirectory = "soju";
+        RuntimeDirectory = "soju";
       };
     };
   };
 
-  meta.maintainers = with maintainers; [ malvo ];
+  meta.maintainers = with maintainers; [ malte-v ];
 }

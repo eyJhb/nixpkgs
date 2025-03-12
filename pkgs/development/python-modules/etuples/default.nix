@@ -1,21 +1,27 @@
-{ lib
-, buildPythonPackage
-, fetchFromGitHub
-, cons
-, multipledispatch
-, pytestCheckHook
-, pytest-html
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+  cons,
+  multipledispatch,
+  py,
+  pytestCheckHook,
+  pytest-html,
+  pythonOlder,
 }:
 
 buildPythonPackage rec {
   pname = "etuples";
-  version = "0.3.4";
+  version = "0.3.9";
+  format = "setuptools";
+
+  disabled = pythonOlder "3.8";
 
   src = fetchFromGitHub {
     owner = "pythological";
     repo = "etuples";
-    rev = "35d760ceb64ec318f302a6e4d3a4a80feda97a9e";
-    sha256 = "sha256-CXD8MhsdWYAcG5WDVTT/A2HDtiO1xfQbrwlYVnxXpBU=";
+    tag = "v${version}";
+    hash = "sha256-dl+exar98PnqEiCNX+Ydllp7aohsAYrFtxb2Q1Lxx6Y=";
   };
 
   propagatedBuildInputs = [
@@ -23,7 +29,8 @@ buildPythonPackage rec {
     multipledispatch
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
+    py
     pytestCheckHook
     pytest-html
   ];
@@ -38,7 +45,7 @@ buildPythonPackage rec {
   meta = with lib; {
     description = "Python S-expression emulation using tuple-like objects";
     homepage = "https://github.com/pythological/etuples";
-    changelog = "https://github.com/pythological/etuples/releases";
+    changelog = "https://github.com/pythological/etuples/releases/tag/v${version}";
     license = licenses.asl20;
     maintainers = with maintainers; [ Etjean ];
   };

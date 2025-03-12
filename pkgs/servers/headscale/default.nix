@@ -1,21 +1,44 @@
-{ lib, buildGoModule, fetchFromGitHub, installShellFiles }:
-
+{
+  lib,
+  buildGoModule,
+  fetchFromGitHub,
+  installShellFiles,
+  iana-etc,
+  libredirect,
+  nixosTests,
+  postgresql,
+  stdenv,
+}:
 buildGoModule rec {
   pname = "headscale";
-  version = "0.15.0";
+  version = "0.25.1";
 
   src = fetchFromGitHub {
     owner = "juanfont";
     repo = "headscale";
-    rev = "v${version}";
-    sha256 = "sha256-ZgChln6jcxyEHbCy89kNnwd9qWcB0yDq05xFkM69WLs=";
+    tag = "v${version}";
+    hash = "sha256-CrdMxRAgrDE1lJ3v9AhCN+cKOVqmIVwjE0x+msSVT+c=";
   };
 
-  vendorSha256 = "sha256-0jZ37tmBG8E0HS/wbQyQvAKo1UKQdaZDa+OTGfGDAi4=";
+  vendorHash = "sha256-ZQj2A0GdLhHc7JLW7qgpGBveXXNWg9ueSG47OZQQXEw=";
 
-  ldflags = [ "-s" "-w" "-X github.com/juanfont/headscale/cmd/headscale/cli.Version=v${version}" ];
+  subPackages = [ "cmd/headscale" ];
+
+  ldflags = [
+    "-s"
+    "-w"
+    "-X github.com/juanfont/headscale/cmd/headscale/cli.Version=v${version}"
+  ];
 
   nativeBuildInputs = [ installShellFiles ];
+
+  nativeCheckInputs = [ libredirect.hook postgresql ];
+
+  checkFlags = ["-short"];
+
+  preCheck = lib.optionalString stdenv.hostPlatform.isDarwin ''
+    export NIX_REDIRECTS=/etc/protocols=${iana-etc}/etc/protocols:/etc/services=${iana-etc}/etc/services
+  '';
 
   postInstall = ''
     installShellCompletion --cmd headscale \
@@ -24,9 +47,11 @@ buildGoModule rec {
       --zsh <($out/bin/headscale completion zsh)
   '';
 
+  passthru.tests = { inherit (nixosTests) headscale; };
+
   meta = with lib; {
     homepage = "https://github.com/juanfont/headscale";
-    description = "An open source, self-hosted implementation of the Tailscale control server";
+    description = "Open source, self-hosted implementation of the Tailscale control server";
     longDescription = ''
       Tailscale is a modern VPN built on top of Wireguard. It works like an
       overlay network between the computers of your networks - using all kinds
@@ -44,6 +69,10 @@ buildGoModule rec {
       Headscale implements this coordination server.
     '';
     license = licenses.bsd3;
-    maintainers = with maintainers; [ nkje jk kradalby ];
+    mainProgram = "headscale";
+    maintainers = with maintainers; [
+      kradalby
+      misterio77
+    ];
   };
 }

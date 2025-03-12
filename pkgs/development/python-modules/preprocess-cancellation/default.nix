@@ -1,26 +1,48 @@
-{ lib, fetchFromGitHub, buildPythonPackage, pythonOlder, poetry-core
-, pytestCheckHook, pytest-cov
-, shapely }:
+{
+  lib,
+  buildPythonPackage,
+  pythonOlder,
+  fetchFromGitHub,
+  poetry-core,
+  shapely,
+  pytestCheckHook,
+}:
 
 buildPythonPackage rec {
   pname = "preprocess-cancellation";
-  version = "0.2.0";
+  version = "0.2.1";
   disabled = pythonOlder "3.6"; # >= 3.6
-  format = "pyproject";
+  pyproject = true;
 
   # No tests in PyPI
   src = fetchFromGitHub {
     owner = "kageurufu";
     repo = "cancelobject-preprocessor";
-    rev = version;
-    hash = "sha256-mn3/etXA5dkL+IsyxwD4/XjU/t4/roYFVyqQxlLOoOI=";
+    tag = version;
+    hash = "sha256-MJ4mwOFswLYHhg2LNZ+/ZwDvSjoxElVxlaWjArHV2NY=";
   };
 
-  nativeBuildInputs = [ poetry-core ];
+  postPatch = ''
+    sed -i "/^addopts/d" pyproject.toml
 
-  propagatedBuildInputs = [ shapely ];
+    cat >> pyproject.toml << EOF
+    [build-system]
+    requires = ["poetry-core"]
+    build-backend = "poetry.core.masonry.api"
+    EOF
+  '';
 
-  checkInputs = [ pytestCheckHook pytest-cov ];
+  build-system = [
+    poetry-core
+  ];
+
+  optional-dependencies = {
+    shapely = [ shapely ];
+  };
+
+  nativeCheckInputs = [ pytestCheckHook ];
+
+  pythonImportsCheck = [ "preprocess_cancellation" ];
 
   meta = with lib; {
     description = "Klipper GCode Preprocessor for Object Cancellation";

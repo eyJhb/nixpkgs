@@ -1,5 +1,4 @@
 { lib
-, mkDerivation
 , stdenv
 , fetchFromGitHub
 , cmake
@@ -8,25 +7,36 @@
 , which
 , python3
 , rsync
-, makeWrapper
+, wrapQtAppsHook
 , qtbase
+, qtpositioning
 , qtsvg
+, qtwayland
 , libGLU
 , libGL
 , zlib
 , icu
 , freetype
+, pugixml
+, nix-update-script
 }:
 
-mkDerivation rec {
+let
+  world_feed_integration_tests_data = fetchFromGitHub {
+    owner = "organicmaps";
+    repo = "world_feed_integration_tests_data";
+    rev = "30ecb0b3fe694a582edfacc2a7425b6f01f9fec6";
+    hash = "sha256-1FF658OhKg8a5kKX/7TVmsxZ9amimn4lB6bX9i7pnI4=";
+  };
+in stdenv.mkDerivation (finalAttrs: {
   pname = "organicmaps";
-  version = "2022.03.23-4-android";
+  version = "2025.03.02-7";
 
   src = fetchFromGitHub {
     owner = "organicmaps";
     repo = "organicmaps";
-    rev = version;
-    sha256 = "sha256-4VBsHq8z/odD7Nrk9e0sYMEBBLeTAHsWsdgPIN1KVZo=";
+    tag = "${finalAttrs.version}-android";
+    hash = "sha256-5WX+YDgu8Ll5+rZWWxfbNW0pBFz+2XWkw/ahM14Ml08=";
     fetchSubmodules = true;
   };
 
@@ -35,7 +45,13 @@ mkDerivation rec {
     echo "exit 0" > tools/unix/check_cert.sh
 
     # crude fix for https://github.com/organicmaps/organicmaps/issues/1862
-    echo "echo ${lib.replaceStrings ["." "-" "android"] ["" "" ""] version}" > tools/unix/version.sh
+    echo "echo ${lib.replaceStrings ["." "-"] ["" ""] finalAttrs.version}" > tools/unix/version.sh
+
+    # TODO use system boost instead, see https://github.com/organicmaps/organicmaps/issues/5345
+    patchShebangs 3party/boost/tools/build/src/engine/build.sh
+
+    # Prefetch test data, or the build system will try to fetch it with git.
+    ln -s ${world_feed_integration_tests_data} data/test_data/world_feed_integration_tests_data
   '';
 
   nativeBuildInputs = [
@@ -45,18 +61,21 @@ mkDerivation rec {
     which
     python3
     rsync
-    makeWrapper
+    wrapQtAppsHook
   ];
 
   # Most dependencies are vendored
   buildInputs = [
     qtbase
+    qtpositioning
     qtsvg
+    qtwayland
     libGLU
     libGL
     zlib
     icu
     freetype
+    pugixml
   ];
 
   # Yes, this is PRE configure. The configure phase uses cmake
@@ -64,28 +83,20 @@ mkDerivation rec {
     bash ./configure.sh
   '';
 
-  postInstall = ''
-    install -Dm755 OMaps $out/bin/OMaps
-    # Tell the program that the read-only and the read-write data locations
-    # are different, and create the read-write one.
-    wrapProgram $out/bin/OMaps \
-      --add-flags "-resources_path $out/share/organicmaps/data" \
-      --add-flags '-data_path "''${XDG_DATA_HOME:-''${HOME}/.local/share}/OMaps"' \
-      --run 'mkdir -p "''${XDG_DATA_HOME:-''${HOME}/.local/share}/OMaps"'
-
-    mkdir -p $out/share/organicmaps
-    cp -r ../data $out/share/organicmaps/data
-    install -Dm644 ../qt/res/logo.png $out/share/icons/hicolor/96x96/apps/organicmaps.png
-    install -Dm644 ../qt/res/OrganicMaps.desktop $out/share/applications/OrganicMaps.desktop
-  '';
+  passthru = {
+    updateScript = nix-update-script {
+      extraArgs = [ "-vr" "(.*)-android" ];
+    };
+  };
 
   meta = with lib; {
+    # darwin: "invalid application of 'sizeof' to a function type"
+    broken = stdenv.hostPlatform.isDarwin;
     homepage = "https://organicmaps.app/";
     description = "Detailed Offline Maps for Travellers, Tourists, Hikers and Cyclists";
     license = licenses.asl20;
     maintainers = with maintainers; [ fgaz ];
     platforms = platforms.all;
     mainProgram = "OMaps";
-    broken = stdenv.isDarwin; # "invalid application of 'sizeof' to a function type"
   };
-}
+})

@@ -1,68 +1,95 @@
-{ lib, stdenv, callPackage, fetchurl, nixosTests }:
+{
+  lib,
+  stdenv,
+  callPackage,
+  fetchurl,
+  nixosTests,
+  commandLineArgs ? "",
+  useVSCodeRipgrep ? stdenv.hostPlatform.isDarwin,
+}:
 
 let
   inherit (stdenv.hostPlatform) system;
+  throwSystem = throw "Unsupported system: ${system}";
 
-  plat = {
-    x86_64-linux = "linux-x64";
-    x86_64-darwin = "darwin-x64";
-    aarch64-linux = "linux-arm64";
-    armv7l-linux = "linux-armhf";
-  }.${system};
+  plat =
+    {
+      x86_64-linux = "linux-x64";
+      x86_64-darwin = "darwin-x64";
+      aarch64-linux = "linux-arm64";
+      aarch64-darwin = "darwin-arm64";
+      armv7l-linux = "linux-armhf";
+    }
+    .${system} or throwSystem;
 
-  archive_fmt = if system == "x86_64-darwin" then "zip" else "tar.gz";
+  archive_fmt = if stdenv.hostPlatform.isDarwin then "zip" else "tar.gz";
 
-  sha256 = {
-    x86_64-linux = "1sh2f7hwhilwmlgy11kl0s2n3phpcir15wyl2fkyhsr2kdj4jz9r";
-    x86_64-darwin = "1s04d91f08982wi8hb4dw0j57d6zqrdgns16ihrgsvahrzksgq4b";
-    aarch64-linux = "1a97lk1qz2lz0lk5lpja32zy07iwdbskp6baf429iz7fz232rshm";
-    armv7l-linux = "0vjqxqcr7fq3ncx1nl6ny7qcqm4vlsn33c074hhcg5292blg2a0p";
-  }.${system};
+  sha256 =
+    {
+      x86_64-linux = "14x7f1i5w8q40mbyc77nfw0kgccgfpzp3jg1r77lj307b8vlh0ma";
+      x86_64-darwin = "1ma207pyhkn66hyswjhqpsm5n2180n5mclhw21ikd9jg4n63nwqs";
+      aarch64-linux = "1qhx99s8n28lfs5fjl924qx04za4jqs7n286qz0izm9lhcdbdbid";
+      aarch64-darwin = "1dm4l6crm79i16f3bs6m5v5icxsgzbwcmp4c66wcpnvzyqfqwz64";
+      armv7l-linux = "1fp5bw8qkkzi9d9ifkfchidkgrad1kjl7hkwpgy5sdgvi49sbw8l";
+    }
+    .${system} or throwSystem;
 
-  sourceRoot = {
-    x86_64-linux = ".";
-    x86_64-darwin = "";
-    aarch64-linux = ".";
-    armv7l-linux = ".";
-  }.${system};
+  sourceRoot = lib.optionalString (!stdenv.hostPlatform.isDarwin) ".";
 in
-  callPackage ./generic.nix rec {
-    inherit sourceRoot;
+callPackage ./generic.nix rec {
+  inherit sourceRoot commandLineArgs useVSCodeRipgrep;
 
-    # Please backport all compatible updates to the stable release.
-    # This is important for the extension ecosystem.
-    version = "1.65.2";
-    pname = "vscodium";
+  # Please backport all compatible updates to the stable release.
+  # This is important for the extension ecosystem.
+  version = "1.97.2.25045";
+  pname = "vscodium";
 
-    executableName = "codium";
-    longName = "VSCodium";
-    shortName = "vscodium";
+  executableName = "codium";
+  longName = "VSCodium";
+  shortName = "vscodium";
 
-    src = fetchurl {
-      url = "https://github.com/VSCodium/vscodium/releases/download/${version}/VSCodium-${plat}-${version}.${archive_fmt}";
-      inherit sha256;
-    };
+  src = fetchurl {
+    url = "https://github.com/VSCodium/vscodium/releases/download/${version}/VSCodium-${plat}-${version}.${archive_fmt}";
+    inherit sha256;
+  };
 
-    tests = nixosTests.vscodium;
+  tests = nixosTests.vscodium;
 
-    updateScript = ./update-vscodium.sh;
+  updateScript = ./update-vscodium.sh;
 
-    meta = with lib; {
-      description = ''
-        Open source source code editor developed by Microsoft for Windows,
-        Linux and macOS (VS Code without MS branding/telemetry/licensing)
-      '';
-      longDescription = ''
-        Open source source code editor developed by Microsoft for Windows,
-        Linux and macOS. It includes support for debugging, embedded Git
-        control, syntax highlighting, intelligent code completion, snippets,
-        and code refactoring. It is also customizable, so users can change the
-        editor's theme, keyboard shortcuts, and preferences
-      '';
-      homepage = "https://github.com/VSCodium/vscodium";
-      downloadPage = "https://github.com/VSCodium/vscodium/releases";
-      license = licenses.mit;
-      maintainers = with maintainers; [ synthetica turion bobby285271 ];
-      platforms = [ "x86_64-linux" "x86_64-darwin" "aarch64-linux" "armv7l-linux" ];
-    };
-  }
+  # Editing the `codium` binary (and shell scripts) within the app bundle causes the bundle's signature
+  # to be invalidated, which prevents launching starting with macOS Ventura, because VSCodium is notarized.
+  # See https://eclecticlight.co/2022/06/17/app-security-changes-coming-in-ventura/ for more information.
+  dontFixup = stdenv.hostPlatform.isDarwin;
+
+  meta = with lib; {
+    description = ''
+      Open source source code editor developed by Microsoft for Windows,
+      Linux and macOS (VS Code without MS branding/telemetry/licensing)
+    '';
+    longDescription = ''
+      Open source source code editor developed by Microsoft for Windows,
+      Linux and macOS. It includes support for debugging, embedded Git
+      control, syntax highlighting, intelligent code completion, snippets,
+      and code refactoring. It is also customizable, so users can change the
+      editor's theme, keyboard shortcuts, and preferences
+    '';
+    homepage = "https://github.com/VSCodium/vscodium";
+    downloadPage = "https://github.com/VSCodium/vscodium/releases";
+    license = licenses.mit;
+    sourceProvenance = with sourceTypes; [ binaryNativeCode ];
+    maintainers = with maintainers; [
+      synthetica
+      bobby285271
+      ludovicopiero
+    ];
+    mainProgram = "codium";
+    platforms = [
+      "x86_64-linux"
+      "x86_64-darwin"
+      "aarch64-linux"
+      "aarch64-darwin"
+      "armv7l-linux"
+    ];
+  };
+}

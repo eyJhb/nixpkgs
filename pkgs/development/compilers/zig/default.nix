@@ -1,57 +1,43 @@
-{ lib
-, fetchFromGitHub
-, cmake
-, llvmPackages
-, libxml2
-, zlib
+{
+  lib,
+  callPackage,
+  llvmPackages_16,
+  llvmPackages_17,
+  llvmPackages_18,
+  llvmPackages_19,
+  zigVersions ? { },
 }:
-
 let
-  inherit (llvmPackages) stdenv;
+  versions = {
+    "0.11.0" = {
+      llvmPackages = llvmPackages_16;
+      hash = "sha256-iuU1fzkbJxI+0N1PiLQM013Pd1bzrgqkbIyTxo5gB2I=";
+    };
+    "0.12.1" = {
+      llvmPackages = llvmPackages_17;
+      hash = "sha256-C56jyVf16Co/XCloMLSRsbG9r/gBc8mzCdeEMHV2T2s=";
+    };
+    "0.13.0" = {
+      llvmPackages = llvmPackages_18;
+      hash = "sha256-5qSiTq+UWGOwjDVZMIrAt2cDKHkyNPBSAEjpRQUByFM=";
+    };
+    "0.14.0" = {
+      llvmPackages = llvmPackages_19;
+      hash = "sha256-VyteIp5ZRt6qNcZR68KmM7CvN2GYf8vj5hP+gHLkuVk=";
+    };
+  } // zigVersions;
+
+  mkPackage =
+    {
+      version,
+      hash,
+      llvmPackages,
+    }@args:
+    callPackage ./generic.nix args;
+
+  zigPackages = lib.mapAttrs' (
+    version: args:
+    lib.nameValuePair (lib.versions.majorMinor version) (mkPackage (args // { inherit version; }))
+  ) versions;
 in
-stdenv.mkDerivation rec {
-  pname = "zig";
-  version = "0.9.1";
-
-  src = fetchFromGitHub {
-    owner = "ziglang";
-    repo = pname;
-    rev = version;
-    hash = "sha256-x2c4c9RSrNWGqEngio4ArW7dJjW0gg+8nqBwPcR721k=";
-  };
-
-  nativeBuildInputs = [
-    cmake
-    llvmPackages.llvm.dev
-  ];
-
-  buildInputs = [
-    libxml2
-    zlib
-  ] ++ (with llvmPackages; [
-    libclang
-    lld
-    llvm
-  ]);
-
-  preBuild = ''
-    export HOME=$TMPDIR;
-  '';
-
-  doCheck = true;
-  checkPhase = ''
-    runHook preCheck
-    ./zig test --cache-dir "$TMPDIR" -I $src/test $src/test/behavior.zig
-    runHook postCheck
-  '';
-
-  meta = with lib; {
-    homepage = "https://ziglang.org/";
-    description =
-      "General-purpose programming language and toolchain for maintaining robust, optimal, and reusable software";
-    license = licenses.mit;
-    maintainers = with maintainers; [ andrewrk AndersonTorres ];
-    platforms = platforms.unix;
-    broken = stdenv.isDarwin; # See https://github.com/NixOS/nixpkgs/issues/86299
-  };
-}
+zigPackages

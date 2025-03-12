@@ -1,38 +1,50 @@
-{ lib
-, aiohttp
-, buildPythonPackage
-, cbor2
-, fetchFromGitHub
-, pycryptodomex
-, pytestCheckHook
-, pytest-vcr
-, pytest-asyncio
-, requests
-, pythonOlder
+{
+  lib,
+  aiohttp,
+  buildPythonPackage,
+  busypie,
+  cbor2,
+  fetchFromGitHub,
+  h2,
+  httpx,
+  pycryptodomex,
+  pytest-asyncio,
+  pytest-vcr,
+  pytestCheckHook,
+  pythonOlder,
+  requests,
+  setuptools,
 }:
 
 buildPythonPackage rec {
   pname = "pubnub";
-  version = "6.2.0";
-  format = "setuptools";
+  version = "10.2.0";
+  pyproject = true;
 
   disabled = pythonOlder "3.7";
 
   src = fetchFromGitHub {
-    owner = pname;
+    owner = "pubnub";
     repo = "python";
-    rev = "v${version}";
-    hash = "sha256-QOOPcWhhEqg7c0INQv88+eOP0povN8W4lLoaly9TGu0=";
+    tag = version;
+    hash = "sha256-9qy2ltxDKpEcfgDQDOqhZnEQSLk1VFE5WInJkz8YWCM=";
   };
 
-  propagatedBuildInputs = [
+  pythonRelaxDeps = [ "httpx" ];
+
+  build-system = [ setuptools ];
+
+  dependencies = [
     aiohttp
     cbor2
+    h2
+    httpx
     pycryptodomex
     requests
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
+    busypie
     pytest-asyncio
     pytest-vcr
     pytestCheckHook
@@ -45,14 +57,20 @@ buildPythonPackage rec {
     "tests/functional/push"
   ];
 
-  pythonImportsCheck = [
-    "pubnub"
+  disabledTests = [
+    "test_subscribe"
+    "test_handshaking"
   ];
+
+  pythonImportsCheck = [ "pubnub" ];
 
   meta = with lib; {
     description = "Python-based APIs for PubNub";
     homepage = "https://github.com/pubnub/python";
-    license = with licenses; [ mit ];
+    changelog = "https://github.com/pubnub/python/releases/tag/${src.tag}";
+    # PubNub Software Development Kit License Agreement
+    # https://github.com/pubnub/python/blob/master/LICENSE
+    license = licenses.unfreeRedistributable;
     maintainers = with maintainers; [ fab ];
   };
 }

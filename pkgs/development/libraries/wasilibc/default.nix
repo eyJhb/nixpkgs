@@ -1,16 +1,32 @@
-{ stdenv, buildPackages, fetchFromGitHub, lib }:
+{
+  stdenv,
+  buildPackages,
+  fetchFromGitHub,
+  lib,
+  firefox-unwrapped,
+  firefox-esr-unwrapped,
+}:
 
-stdenv.mkDerivation {
+let
   pname = "wasilibc";
-  version = "unstable-2021-09-23";
+  version = "22-unstable-2024-10-16";
+in
+stdenv.mkDerivation {
+  inherit pname version;
 
   src = buildPackages.fetchFromGitHub {
     owner = "WebAssembly";
     repo = "wasi-libc";
-    rev = "ad5133410f66b93a2381db5b542aad5e0964db96";
-    hash = "sha256-RiIClVXrb18jF9qCt+5iALHPCZKYcnad7JsILHBV0pA=";
+    rev = "98897e29fcfc81e2b12e487e4154ac99188330c4";
+    hash = "sha256-NFKhMJj/quvN3mR7lmxzA9w46KhX92iG0rQA9qDeS8I=";
     fetchSubmodules = true;
   };
+
+  outputs = [
+    "out"
+    "dev"
+    "share"
+  ];
 
   # clang-13: error: argument unused during compilation: '-rtlib=compiler-rt' [-Werror,-Wunused-command-line-argument]
   postPatch = ''
@@ -19,28 +35,45 @@ stdenv.mkDerivation {
   '';
 
   preBuild = ''
-    export NIX_CFLAGS_COMPILE="-I$(pwd)/sysroot/include $NIX_CFLAGS_COMPILE"
-  '';
+    export SYSROOT_LIB=${builtins.placeholder "out"}/lib
+    export SYSROOT_INC=${builtins.placeholder "dev"}/include
+    export SYSROOT_SHARE=${builtins.placeholder "share"}/share
+    mkdir -p "$SYSROOT_LIB" "$SYSROOT_INC" "$SYSROOT_SHARE"
+    makeFlagsArray+=(
+      "SYSROOT_LIB:=$SYSROOT_LIB"
+      "SYSROOT_INC:=$SYSROOT_INC"
+      "SYSROOT_SHARE:=$SYSROOT_SHARE"
+      # https://bugzilla.mozilla.org/show_bug.cgi?id=1773200
+      "BULK_MEMORY_SOURCES:="
+    )
 
-  makeFlags = [
-    "WASM_CC=${stdenv.cc.targetPrefix}cc"
-    "WASM_NM=${stdenv.cc.targetPrefix}nm"
-    "WASM_AR=${stdenv.cc.targetPrefix}ar"
-    "INSTALL_DIR=${placeholder "out"}"
-  ];
+  '';
 
   enableParallelBuilding = true;
 
-  postInstall = ''
-    mv $out/lib/*/* $out/lib
-    ln -s $out/share/wasm32-wasi/undefined-symbols.txt $out/lib/wasi.imports
+  # We just build right into the install paths, per the `preBuild`.
+  dontInstall = true;
+
+  preFixup = ''
+    ln -s $share/share/undefined-symbols.txt $out/lib/wasi.imports
   '';
 
+  passthru.tests = {
+    inherit firefox-unwrapped firefox-esr-unwrapped;
+  };
+
   meta = with lib; {
+    changelog = "https://github.com/WebAssembly/wasi-sdk/releases/tag/wasi-sdk-${version}";
     description = "WASI libc implementation for WebAssembly";
     homepage = "https://wasi.dev";
     platforms = platforms.wasi;
-    maintainers = with maintainers; [ matthewbauer ];
-    license = with licenses; [ asl20 mit llvm-exception ];
+    maintainers = with maintainers; [
+      matthewbauer
+      rvolosatovs
+    ];
+    license = with licenses; [
+      asl20-llvm
+      mit
+    ];
   };
 }

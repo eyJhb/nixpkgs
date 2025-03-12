@@ -1,85 +1,102 @@
-{ lib, fetchFromGitHub, python3, intltool, file, wrapGAppsHook, gtk-vnc
-, vte, avahi, dconf, gobject-introspection, libvirt-glib, system-libvirt
-, gsettings-desktop-schemas, libosinfo, gnome, gtksourceview4, docutils, cpio
-, e2fsprogs, findutils, gzip, cdrtools, xorriso
-, spiceSupport ? true, spice-gtk ? null
+{
+  stdenv,
+  lib,
+  fetchFromGitHub,
+  python3,
+  meson,
+  ninja,
+  pkg-config,
+  wrapGAppsHook4,
+  docutils,
+  desktopToDarwinBundle,
+  gtk-vnc,
+  vte,
+  dconf,
+  gobject-introspection,
+  libvirt-glib,
+  gsettings-desktop-schemas,
+  libosinfo,
+  adwaita-icon-theme,
+  gtksourceview4,
+  xorriso,
+  spiceSupport ? true,
+  spice-gtk ? null,
+  gst_all_1 ? null,
 }:
 
-with lib;
-
-python3.pkgs.buildPythonApplication rec {
+let
+  pythonDependencies = with python3.pkgs; [
+    pygobject3
+    libvirt
+    libxml2
+    requests
+  ];
+in
+stdenv.mkDerivation rec {
   pname = "virt-manager";
-  version = "4.0.0";
+  version = "5.0.0";
 
   src = fetchFromGitHub {
     owner = pname;
     repo = pname;
     rev = "v${version}";
-    hash = "sha256-3ycXNBuf91kI2cJCRw0ZzaWkaIVwb/lmkOKeHNwpH9Y=";
+    hash = "sha256-KtB2VspkA/vFu7I8y6M8WfAoZglxmCeb4Z3OzdsGuvk=";
   };
 
+  strictDeps = true;
+  mesonFlags = [
+    (lib.mesonBool "compile-schemas" false)
+    (lib.mesonEnable "tests" false)
+  ];
+
   nativeBuildInputs = [
-    intltool file
+    meson
+    ninja
     gobject-introspection # for setup hook populating GI_TYPELIB_PATH
     docutils
-  ];
+    wrapGAppsHook4
+    pkg-config
+  ] ++ lib.optional stdenv.hostPlatform.isDarwin desktopToDarwinBundle;
 
-  buildInputs = [
-    wrapGAppsHook
-    libvirt-glib vte dconf gtk-vnc gnome.adwaita-icon-theme avahi
-    gsettings-desktop-schemas libosinfo gtksourceview4
-    gobject-introspection # Temporary fix, see https://github.com/NixOS/nixpkgs/issues/56943
-  ] ++ optional spiceSupport spice-gtk;
+  buildInputs =
+    [
+      python3
+      libvirt-glib
+      vte
+      dconf
+      gtk-vnc
+      adwaita-icon-theme
+      gsettings-desktop-schemas
+      libosinfo
+      gtksourceview4
+    ]
+    ++ lib.optionals spiceSupport [
+      gst_all_1.gst-plugins-base
+      gst_all_1.gst-plugins-good
+      spice-gtk
+    ];
 
-  propagatedBuildInputs = with python3.pkgs; [
-    pygobject3 ipaddress libvirt libxml2 requests cdrtools
-  ];
-
-  patchPhase = ''
-    sed -i 's|/usr/share/libvirt/cpu_map.xml|${system-libvirt}/share/libvirt/cpu_map.xml|g' virtinst/capabilities.py
-    sed -i "/'install_egg_info'/d" setup.py
+  postInstall = ''
+    if ! grep -q StartupWMClass= "$out/share/applications/virt-manager.desktop"; then
+        echo "StartupWMClass=.virt-manager-wrapped" >> "$out/share/applications/virt-manager.desktop"
+    else
+        echo "error: upstream desktop file already contains StartupWMClass=, please update Nix expr" >&2
+        exit 1
+    fi
   '';
-
-  postConfigure = ''
-    ${python3.interpreter} setup.py configure --prefix=$out
-  '';
-
-  setupPyGlobalFlags = [ "--no-update-icon-cache" "--no-compile-schemas" ];
-
-  dontWrapGApps = true;
 
   preFixup = ''
     glib-compile-schemas $out/share/gsettings-schemas/${pname}-${version}/glib-2.0/schemas
 
-    gappsWrapperArgs+=(--set PYTHONPATH "$PYTHONPATH")
-    # these are called from virt-install in initrdinject.py
-    gappsWrapperArgs+=(--prefix PATH : "${makeBinPath [ cpio e2fsprogs file findutils gzip ]}")
+    gappsWrapperArgs+=(--set PYTHONPATH "${python3.pkgs.makePythonPath pythonDependencies}")
+    # these are called from virt-install in installerinject.py
+    gappsWrapperArgs+=(--prefix PATH : "${lib.makeBinPath [ xorriso ]}")
 
-    makeWrapperArgs+=("''${gappsWrapperArgs[@]}")
-  '';
-
-  checkInputs = with python3.pkgs; [
-    pytestCheckHook
-    cpio
-    cdrtools
-    xorriso
-  ];
-
-  disabledTests = [
-    "testAlterDisk"
-    "test_misc_nonpredicatble_generate"
-  ];
-
-  preCheck = ''
-    export HOME=.
-  ''; # <- Required for "tests/test_urldetect.py".
-
-  postCheck = ''
-    $out/bin/virt-manager --version | grep -Fw ${version} > /dev/null
+    patchShebangs $out/bin
   '';
 
   meta = with lib; {
-    homepage = "http://virt-manager.org";
+    homepage = "https://virt-manager.org";
     description = "Desktop user interface for managing virtual machines";
     longDescription = ''
       The virt-manager application is a desktop user interface for managing
@@ -87,8 +104,11 @@ python3.pkgs.buildPythonApplication rec {
       manages Xen and LXC (linux containers).
     '';
     license = licenses.gpl2;
-    # exclude Darwin since libvirt-glib currently doesn't build there
-    platforms = platforms.linux;
-    maintainers = with maintainers; [ qknight offline fpletz globin ];
+    platforms = platforms.unix;
+    mainProgram = "virt-manager";
+    maintainers = with maintainers; [
+      fpletz
+      globin
+    ];
   };
 }

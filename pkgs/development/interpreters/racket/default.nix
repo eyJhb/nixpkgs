@@ -1,155 +1,125 @@
-{ lib, stdenv, fetchurl, makeFontsConf
-, cacert
-, cairo, coreutils, fontconfig, freefont_ttf
-, glib, gmp
-, gtk3
-, libedit, libffi
-, libiconv
-, libGL
-, libGLU
-, libjpeg
-, xorg
-, ncurses
-, libpng, libtool, mpfr, openssl, pango, poppler
-, readline, sqlite
-, disableDocs ? false
-, CoreFoundation
-, gsettings-desktop-schemas
-, wrapGAppsHook
+{
+  lib,
+  stdenv,
+  fetchurl,
+  racket-minimal,
+
+  cairo,
+  fontconfig,
+  glib,
+  glibcLocales,
+  gtk3,
+  libGL,
+  libiodbc,
+  libjpeg,
+  libpng,
+  makeFontsConf,
+  pango,
+  unixODBC,
+  wrapGAppsHook3,
+
+  disableDocs ? false,
+
+  callPackage,
 }:
 
 let
+  minimal = racket-minimal.override { inherit disableDocs; };
 
-  fontsConf = makeFontsConf {
-    fontDirectories = [ freefont_ttf ];
-  };
+  makeLibPaths = lib.concatMapStringsSep " " (
+    lib.flip lib.pipe [
+      lib.getLib
+      (x: ''"${x}/lib"'')
+    ]
+  );
 
-  libPath = lib.makeLibraryPath [
-    cairo
-    fontconfig
-    glib
-    gmp
-    gtk3
-    gsettings-desktop-schemas
-    libedit
-    libGL
-    libGLU
-    libjpeg
-    libpng
-    mpfr
-    ncurses
-    openssl
-    pango
-    poppler
-    readline
-    sqlite
-  ];
-
+  manifest = lib.importJSON ./manifest.json;
+  inherit (stdenv.hostPlatform) isDarwin;
 in
 
-stdenv.mkDerivation rec {
-  pname = "racket";
-  version = "8.4"; # always change at once with ./minimal.nix
+minimal.overrideAttrs (
+  finalAttrs: prevAttrs: {
+    src = fetchurl {
+      url = "https://mirror.racket-lang.org/installers/${manifest.version}/${manifest.full.filename}";
+      inherit (manifest.full) sha256;
+    };
 
-  src = (lib.makeOverridable ({ name, sha256 }:
-    fetchurl {
-      url = "https://mirror.racket-lang.org/installers/${version}/${name}-src.tgz";
-      inherit sha256;
-    }
-  )) {
-    name = "${pname}-${version}";
-    sha256 = "sha256-uJ+vL+FtBNILkFbwi7qZ6yBA1Rcr7o886zmZ/tFuatM=";
-  };
+    buildInputs = prevAttrs.buildInputs ++ [
+      (if isDarwin then libiodbc else unixODBC)
+      cairo
+      fontconfig.lib
+      glib
+      gtk3
+      libGL
+      libjpeg
+      libpng
+      pango
+    ];
 
-  FONTCONFIG_FILE = fontsConf;
-  LD_LIBRARY_PATH = libPath;
-  NIX_LDFLAGS = lib.concatStringsSep " " [
-    (lib.optionalString (stdenv.cc.isGNU && ! stdenv.isDarwin) "-lgcc_s")
-    (lib.optionalString stdenv.isDarwin "-framework CoreFoundation")
-  ];
+    nativeBuildInputs = [
+      wrapGAppsHook3
+    ];
 
-  nativeBuildInputs = [ cacert wrapGAppsHook ];
+    patches = prevAttrs.patches or [ ] ++ [
+      /*
+        Hardcode variant detection because nixpkgs wraps the Racket binary making it
+        fail to detect its variant at runtime.
+        https://github.com/NixOS/nixpkgs/issues/114993#issuecomment-812951247
+      */
+      ./patches/force-cs-variant.patch
+    ];
 
-  buildInputs = [ fontconfig libffi libtool sqlite gsettings-desktop-schemas gtk3 ncurses ]
-    ++ lib.optionals stdenv.isDarwin [ libiconv CoreFoundation ];
+    preBuild =
+      let
+        libPaths = makeLibPaths finalAttrs.buildInputs;
+        libPathsVar = if isDarwin then "DYLD_FALLBACK_LIBRARY_PATH" else "LD_LIBRARY_PATH";
+      in
+      /*
+        Makes FFIs available for setting up `main-distribution` and its
+        dependencies, which is integrated into the build process of Racket
+      */
+      ''
+        for lib_path in ${libPaths}; do
+            addToSearchPath ${libPathsVar} $lib_path
+        done
+      ''
+      # Fixes Fontconfig errors
+      + ''
+        export FONTCONFIG_FILE=${makeFontsConf { fontDirectories = [ ]; }}
+        export XDG_CACHE_HOME=$(mktemp -d)
+      '';
 
-  patches = [
-    # Hardcode variant detection because we wrap the Racket binary making it
-    # fail to detect its variant at runtime.
-    # See: https://github.com/NixOS/nixpkgs/issues/114993#issuecomment-812951247
-    ./force-cs-variant.patch
-
-    # The entry point binary $out/bin/racket is codesigned at least once. The
-    # following error is triggered as a result.
-    # (error 'add-ad-hoc-signature "file already has a signature")
-    # We always remove the existing signature then call add-ad-hoc-signature to
-    # circumvent this error.
-    ./force-remove-codesign-then-add.patch
-  ];
-
-  preConfigure = ''
-    unset AR
-    for f in src/lt/configure src/cs/c/configure src/bc/src/string.c src/ChezScheme/workarea; do
-      substituteInPlace "$f" \
-        --replace /usr/bin/uname ${coreutils}/bin/uname \
-        --replace /bin/cp ${coreutils}/bin/cp \
-        --replace /bin/ln ${coreutils}/bin/ln \
-        --replace /bin/rm ${coreutils}/bin/rm \
-        --replace /bin/true ${coreutils}/bin/true
-    done
-
-    # The configure script forces using `libtool -o` as AR on Darwin. But, the
-    # `-o` option is only available from Apple libtool. GNU ar works here.
-    substituteInPlace src/ChezScheme/zlib/configure \
-        --replace 'ARFLAGS="-o"' 'AR=ar; ARFLAGS="rc"'
-
-    mkdir src/build
-    cd src/build
-
-  '' + lib.optionalString stdenv.isLinux ''
-    gappsWrapperArgs+=("--prefix"   "LD_LIBRARY_PATH" ":" ${libPath})
-  '' + lib.optionalString stdenv.isDarwin ''
-    gappsWrapperArgs+=("--prefix" "DYLD_LIBRARY_PATH" ":" ${libPath})
-  ''
-  ;
-
-  preBuild = lib.optionalString stdenv.isDarwin ''
-    # Cannot set DYLD_LIBRARY_PATH as an attr of this drv, becasue dynamic
-    # linker environment variables like this are purged.
-    # See: https://apple.stackexchange.com/a/212954/167199
-
-    # Make builders feed it to dlopen(...). Do not expose all of $libPath to
-    # DYLD_LIBRARY_PATH as the order of looking up symbols like
-    # `__cg_jpeg_resync_to_restart` will be messed up. Our libJPEG.dyllib
-    # expects it from our libTIFF.dylib, but instead it could not be found from
-    # the system `libTIFF.dylib`. DYLD_FALLBACK_LIBRARY_PATH has its own problem
-    # , too.
-    export DYLD_FALLBACK_LIBRARY_PATH="${libPath}"
-  '';
-
-  shared = if stdenv.isDarwin then "dylib" else "shared";
-  configureFlags = [ "--enable-${shared}"  "--enable-lt=${libtool}/bin/libtool" ]
-                   ++ lib.optional disableDocs [ "--disable-docs" ]
-                   ++ lib.optional stdenv.isDarwin [ "--enable-xonx" ];
-
-  configureScript = "../configure";
-
-  enableParallelBuilding = false;
-
-  meta = with lib; {
-    description = "A programmable programming language";
-    longDescription = ''
-      Racket is a full-spectrum programming language. It goes beyond
-      Lisp and Scheme with dialects that support objects, types,
-      laziness, and more. Racket enables programmers to link
-      components written in different dialects, and it empowers
-      programmers to create new, project-specific dialects. Racket's
-      libraries support applications from web servers and databases to
-      GUIs and charts.
+    preFixup = lib.optionalString (!isDarwin) ''
+      gappsWrapperArgs+=("--set" "LOCALE_ARCHIVE" "${glibcLocales}/lib/locale/locale-archive")
     '';
-    homepage = "https://racket-lang.org/";
-    license = with licenses; [ asl20 /* or */ mit ];
-    maintainers = with maintainers; [ kkallio henrytill vrthra ];
-    platforms = [ "x86_64-darwin" "x86_64-linux" "aarch64-linux" "aarch64-darwin" ];
-  };
-}
+
+    passthru =
+      let
+        notUpdated = x: !builtins.isAttrs x || lib.isDerivation x;
+        stopPred =
+          _: lhs: rhs:
+          notUpdated lhs || notUpdated rhs;
+      in
+      lib.recursiveUpdateUntil stopPred prevAttrs.passthru {
+        tests = builtins.mapAttrs (name: path: callPackage path { racket = finalAttrs.finalPackage; }) {
+          ## `main-distribution` ##
+          draw-crossing = ./tests/draw-crossing.nix;
+        };
+      };
+
+    meta = prevAttrs.meta // {
+      description = "Programmable programming language";
+      longDescription = ''
+        Racket is a full-spectrum programming language. It goes beyond
+        Lisp and Scheme with dialects that support objects, types,
+        laziness, and more. Racket enables programmers to link
+        components written in different dialects, and it empowers
+        programmers to create new, project-specific dialects. Racket's
+        libraries support applications from web servers and databases to
+        GUIs and charts.
+      '';
+      platforms = lib.platforms.unix;
+      badPlatforms = lib.platforms.darwin;
+    };
+  }
+)

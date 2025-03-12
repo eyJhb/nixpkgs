@@ -1,27 +1,33 @@
-{ lib, stdenv, fetchFromGitHub, kernel, bc }:
+{
+  lib,
+  stdenv,
+  fetchFromGitHub,
+  kernel,
+  kernelModuleMakeFlags,
+  bc,
+}:
 
-stdenv.mkDerivation rec {
+stdenv.mkDerivation {
   pname = "rtl8821cu";
-  version = "${kernel.version}-unstable-2022-03-08";
+  version = "${kernel.version}-unstable-2024-09-27";
 
   src = fetchFromGitHub {
     owner = "morrownr";
-    repo = "8821cu-20210118";
-    rev = "4bdd7c8668562e43564cd5d786055633e591ad4d";
-    sha256 = "sha256-dfvDpjsra/nHwIGywOkZICTEP/Ex7ooH4zzkXqAaDkI=";
+    repo = "8821cu-20210916";
+    rev = "2dce552dc6aa0cdab427bfa810c3df002eab0078";
+    hash = "sha256-8hGAfZyDCGl0RnPnYjc7iMEulZvoIGe2ghfIfoiz7ZI=";
   };
 
   hardeningDisable = [ "pic" ];
 
   nativeBuildInputs = [ bc ] ++ kernel.moduleBuildDependencies;
-  makeFlags = kernel.makeFlags;
+  makeFlags = kernelModuleMakeFlags;
 
   prePatch = ''
     substituteInPlace ./Makefile \
-      --replace /lib/modules/ "${kernel.dev}/lib/modules/" \
-      --replace '$(shell uname -r)' "${kernel.modDirVersion}" \
-      --replace /sbin/depmod \# \
-      --replace '$(MODDESTDIR)' "$out/lib/modules/${kernel.modDirVersion}/kernel/net/wireless/"
+      --replace-fail /lib/modules/ "${kernel.dev}/lib/modules/" \
+      --replace-fail /sbin/depmod \# \
+      --replace-fail '$(MODDESTDIR)' "$out/lib/modules/${kernel.modDirVersion}/kernel/net/wireless/"
   '';
 
   preInstall = ''

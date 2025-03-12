@@ -1,17 +1,22 @@
-{ lib
-, buildPythonPackage
-, fetchPypi
+{
+  lib,
+  buildPythonPackage,
+  fetchPypi,
+  setuptools,
 }:
 
 buildPythonPackage rec {
-  pname = "types-python-dateutil";
-  version = "2.8.10";
-  format = "setuptools";
+  pname = "types-dateutil";
+  version = "2.9.0.20241003";
+  pyproject = true;
 
   src = fetchPypi {
-    inherit pname version;
-    sha256 = "sha256-a886rnJC5Xk7r9eyvPtOJV63srMUSs0N8OGC3OWMytM=";
+    pname = "types-python-dateutil";
+    inherit version;
+    hash = "sha256-WMuFRJsqVtZoTkGu77TEKAYxJGoNoacZvb5vP7AxdEY=";
   };
+
+  nativeBuildInputs = [ setuptools ];
 
   pythonImportsCheck = [ "dateutil-stubs" ];
 

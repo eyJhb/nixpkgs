@@ -1,55 +1,75 @@
-{ lib
-, aioredis
-, async_generator
-, buildPythonPackage
-, fetchPypi
-, hypothesis
-, lupa
-, pytest-asyncio
-, pytest-mock
-, pytestCheckHook
-, pythonOlder
-, redis
-, six
-, sortedcontainers
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+  hypothesis,
+  jsonpath-ng,
+  lupa,
+  poetry-core,
+  pyprobables,
+  pytest-asyncio,
+  pytest-mock,
+  pytestCheckHook,
+  pythonOlder,
+  redis,
+  redis-server,
+  sortedcontainers,
 }:
 
 buildPythonPackage rec {
   pname = "fakeredis";
-  version = "1.7.1";
-  format = "pyproject";
+  version = "2.26.2";
+  pyproject = true;
 
-  disabled = pythonOlder "3.7";
+  disabled = pythonOlder "3.9";
 
-  src = fetchPypi {
-    inherit pname version;
-    hash = "sha256-fCxLobQuCnUzfFS3d78GcQVrRWllDj/5J+S5s4WvyOw=";
+  src = fetchFromGitHub {
+    owner = "dsoftwareinc";
+    repo = "fakeredis-py";
+    tag = "v${version}";
+    hash = "sha256-jD0e04ltH1MjExfrPsR6LUn4X0/qoJZWzX9i2A58HHI=";
   };
 
-  propagatedBuildInputs = [
-    aioredis
-    lupa
+  build-system = [ poetry-core ];
+
+  dependencies = [
     redis
-    six
     sortedcontainers
   ];
 
-  checkInputs = [
-    async_generator
+  optional-dependencies = {
+    lua = [ lupa ];
+    json = [ jsonpath-ng ];
+    bf = [ pyprobables ];
+    cf = [ pyprobables ];
+    probabilistic = [ pyprobables ];
+  };
+
+  nativeCheckInputs = [
     hypothesis
     pytest-asyncio
     pytest-mock
     pytestCheckHook
   ];
 
-  pythonImportsCheck = [
-    "fakeredis"
-  ];
+  pythonImportsCheck = [ "fakeredis" ];
+
+  pytestFlagsArray = [ "-m 'not slow'" ];
+
+  preCheck = ''
+    ${lib.getExe' redis-server "redis-server"} --port 6390 &
+    REDIS_PID=$!
+  '';
+
+  postCheck = ''
+    kill $REDIS_PID
+  '';
 
   meta = with lib; {
     description = "Fake implementation of Redis API";
-    homepage = "https://github.com/jamesls/fakeredis";
-    license = with licenses; [ mit ];
+    homepage = "https://github.com/dsoftwareinc/fakeredis-py";
+    changelog = "https://github.com/cunla/fakeredis-py/releases/tag/v${version}";
+    license = with licenses; [ bsd3 ];
     maintainers = with maintainers; [ fab ];
   };
 }
