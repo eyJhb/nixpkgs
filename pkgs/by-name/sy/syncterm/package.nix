@@ -2,13 +2,13 @@
   lib,
   stdenv,
   fetchurl,
-  fetchpatch,
   pkg-config,
   perl,
   unzip,
   autoPatchelfHook,
   ncurses,
   SDL2,
+  libX11,
   alsa-lib,
 }:
 
@@ -46,6 +46,7 @@ stdenv.mkDerivation rec {
     autoPatchelfHook
     pkg-config
     SDL2
+    libX11
     perl
     unzip
   ]; # SDL2 for `sdl2-config`.

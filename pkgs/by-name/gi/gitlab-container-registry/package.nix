@@ -2,12 +2,11 @@
   lib,
   buildGoModule,
   fetchFromGitLab,
-  fetchpatch,
 }:
 
 buildGoModule rec {
   pname = "gitlab-container-registry";
-  version = "4.16.0";
+  version = "4.22.0";
   rev = "v${version}-gitlab";
 
   # nixpkgs-update: no auto update
@@ -15,22 +14,33 @@ buildGoModule rec {
     owner = "gitlab-org";
     repo = "container-registry";
     inherit rev;
-    hash = "sha256-PnX2pLbNqeJmvs+nFiCVW+sYVt8AJ7CEexGcYV7IN4U=";
+    hash = "sha256-r7IVX4xH/K+tfoEKfO9HITHUZT6yfBP2Zr6EPZQUxfw=";
   };
 
-  vendorHash = "sha256-oNQoKn8GPJxmUzkUHGzax2/KWyI3VXLRtAvWe9B64Ds=";
+  vendorHash = "sha256-e7EIScdd0k5iFTDutFotNkKj1rKtBqfEexdkpjSHAoE=";
 
-  postPatch = ''
-    substituteInPlace health/checks/checks_test.go \
-      --replace-fail \
-        'func TestHTTPChecker(t *testing.T) {' \
-        'func TestHTTPChecker(t *testing.T) { t.Skip("Test requires network connection")'
-  '';
+  checkFlags =
+    let
+      skippedTests = [
+        # requires internet
+        "TestHTTPChecker"
+        # requires s3 credentials/urls
+        "TestS3DriverPathStyle"
+        # flaky
+        "TestPurgeAll"
+      ];
+    in
+    [ "-skip=^${builtins.concatStringsSep "$|^" skippedTests}$" ];
+
+  __darwinAllowLocalNetworking = true;
 
   meta = with lib; {
     description = "GitLab Docker toolset to pack, ship, store, and deliver content";
     license = licenses.asl20;
-    maintainers = with maintainers; [ yayayayaka ] ++ teams.cyberus.members;
+    teams = with teams; [
+      gitlab
+      cyberus
+    ];
     platforms = platforms.unix;
   };
 }

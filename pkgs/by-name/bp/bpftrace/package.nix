@@ -16,19 +16,18 @@
   flex,
   bison,
   util-linux,
-  fetchpatch,
   nixosTests,
 }:
 
 stdenv.mkDerivation rec {
   pname = "bpftrace";
-  version = "0.22.1";
+  version = "0.23.4";
 
   src = fetchFromGitHub {
     owner = "bpftrace";
     repo = "bpftrace";
     rev = "v${version}";
-    hash = "sha256-3qtErf3+T73DE40d6F8vFK1TdHcM/56AYFGGzxpRIug=";
+    hash = "sha256-fJOc5M+DhYjmooDb8p/kZbUOhQX27/6aau7Ff9dgjbs=";
   };
 
   buildInputs = with llvmPackages; [

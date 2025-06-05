@@ -15,17 +15,18 @@
   nix-update-script,
   moreutils,
   jq,
+  gst_all_1,
 }:
 
-rustPlatform.buildRustPackage rec {
+rustPlatform.buildRustPackage (finalAttrs: {
   pname = "readest";
-  version = "0.9.19";
+  version = "0.9.51";
 
   src = fetchFromGitHub {
     owner = "readest";
     repo = "readest";
-    tag = "v${version}";
-    hash = "sha256-Z84vH6vEtUMly++I+2AWBGl+3NXEAyjSIVJ57DnUS54=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-UJ4H+pBR+EWr2O34WUmbF2rd3pTVssE/8b9iO9bbx7Y=";
     fetchSubmodules = true;
   };
 
@@ -34,18 +35,18 @@ rustPlatform.buildRustPackage rec {
     chmod -R +w .
   '';
 
-  sourceRoot = "${src.name}/apps/readest-app";
+  sourceRoot = "${finalAttrs.src.name}/apps/readest-app";
 
   pnpmDeps = pnpm_9.fetchDeps {
-    inherit pname version src;
-    hash = "sha256-gHYZpUQOznFIwH0w0tyWyQYyOwNwL8aRcDthx902h+4=";
+    inherit (finalAttrs) pname version src;
+    hash = "sha256-Bd+7MHYBMo4N7UpwkXGmk4oQBbyBMJOtnv6iTVQgn64=";
   };
 
   pnpmRoot = "../..";
 
   useFetchCargoVendor = true;
 
-  cargoHash = "sha256-uAVYvyNKK0megsl3QEfN3vbuO1gJfwbOm9K0SohuGfg=";
+  cargoHash = "sha256-5DIagAKSq427kwZTH/QKY3vbb+TmFscKSANoSkEJMGg=";
 
   cargoRoot = "../..";
 
@@ -59,7 +60,8 @@ rustPlatform.buildRustPackage rec {
       --replace-fail '"Readest"' '"readest"'
     jq 'del(.plugins."deep-link")' src-tauri/tauri.conf.json | sponge src-tauri/tauri.conf.json
     substituteInPlace src/services/constants.ts \
-      --replace-fail "autoCheckUpdates: true" "autoCheckUpdates: false"
+      --replace-fail "autoCheckUpdates: true" "autoCheckUpdates: false" \
+      --replace-fail "telemetryEnabled: true" "telemetryEnabled: false"
   '';
 
   nativeBuildInputs = [
@@ -78,6 +80,11 @@ rustPlatform.buildRustPackage rec {
     gtk3
     librsvg
     openssl
+    # TTS
+    gst_all_1.gstreamer
+    gst_all_1.gst-plugins-base
+    gst_all_1.gst-plugins-good
+    gst_all_1.gst-plugins-bad
   ];
 
   preBuild = ''
@@ -95,10 +102,10 @@ rustPlatform.buildRustPackage rec {
   meta = {
     description = "Modern, feature-rich ebook reader";
     homepage = "https://github.com/readest/readest";
-    changelog = "https://github.com/readest/readest/releases/tag/v${version}";
+    changelog = "https://github.com/readest/readest/releases/tag/v${finalAttrs.version}";
     mainProgram = "readest";
     license = lib.licenses.agpl3Plus;
-    maintainers = with lib.maintainers; [ nayeko ];
+    maintainers = with lib.maintainers; [ eljamm ];
     platforms = lib.platforms.linux;
   };
-}
+})

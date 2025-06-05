@@ -9,21 +9,21 @@
 
 buildLua (finalAttrs: {
   pname = "uosc";
-  version = "5.6.2";
+  version = "5.9.2";
   scriptPath = "src/uosc";
 
   src = fetchFromGitHub {
     owner = "tomasklaen";
     repo = "uosc";
     rev = finalAttrs.version;
-    hash = "sha256-UbSEJGlLSX5wZpfj+Cb3LfWw17pnjxIJUNtP8dclKoU=";
+    hash = "sha256-tBSMLzwiKAXdbvyI80ihl0x/ZcDrNd4e7r1g7+CrLgQ=";
   };
   passthru.updateScript = gitUpdater { };
 
   tools = buildGoModule {
     pname = "uosc-bin";
     inherit (finalAttrs) version src;
-    vendorHash = "sha256-nkY0z2GiDxfNs98dpe+wZNI3dAXcuHaD/nHiZ2XnZ1Y=";
+    vendorHash = "sha256-oRXChHeVQj6nXvKOVV125sM8wD33Dxxv0r/S7sl6SxQ=";
   };
 
   # the script uses custom "texture" fonts as the background for ui elements.

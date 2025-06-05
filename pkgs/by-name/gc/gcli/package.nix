@@ -6,17 +6,18 @@
   pkg-config,
   byacc,
   flex,
+  fetchpatch,
 }:
 
 stdenv.mkDerivation rec {
   pname = "gcli";
-  version = "2.6.1";
+  version = "2.8.0";
 
   src = fetchFromGitHub {
     owner = "herrhotzenplotz";
     repo = "gcli";
     rev = "v${version}";
-    hash = "sha256-pAnDxcQLRF97OzO7/P7eRXv/BUJwbuEveEVUBQuNJBE=";
+    hash = "sha256-s71RImg/N8v9h472upI94Pae/Zlw27f4Kc9SCavP1oY=";
   };
 
   nativeBuildInputs = [

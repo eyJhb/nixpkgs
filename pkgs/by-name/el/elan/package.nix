@@ -16,17 +16,17 @@
 
 rustPlatform.buildRustPackage rec {
   pname = "elan";
-  version = "4.0.0";
+  version = "4.1.2";
 
   src = fetchFromGitHub {
     owner = "leanprover";
     repo = "elan";
     rev = "v${version}";
-    hash = "sha256-6/5yIIO0Avf6YpD7+7B30bnwtcPXi2k4RqWFO8hBaII=";
+    hash = "sha256-1pEa3uFO1lncCjOHEDM84A0p6xoOfZnU+OCS2j8cCK8=";
   };
 
   useFetchCargoVendor = true;
-  cargoHash = "sha256-4HYRglFhEpEnRu8gPSNFFAT2v4/3ccwd02LZfNJUzbM=";
+  cargoHash = "sha256-CLeFXpCfaTTgbr6jmUmewArKfkOquNhjlIlwtoaJfZw=";
 
   nativeBuildInputs = [
     pkg-config
@@ -89,7 +89,7 @@ rustPlatform.buildRustPackage rec {
       asl20 # or
       mit
     ];
-    maintainers = with maintainers; [ gebner ];
+    maintainers = with maintainers; [ ];
     mainProgram = "elan";
   };
 }

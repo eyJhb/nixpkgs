@@ -13,20 +13,20 @@
 
 buildNpmPackage rec {
   pname = "super-productivity";
-  version = "11.1.3";
+  version = "12.0.5";
 
   src = fetchFromGitHub {
     owner = "johannesjo";
     repo = "super-productivity";
     tag = "v${version}";
-    hash = "sha256-GWpKz1q3pmAozlzawi2ITxo3KH0MSrJCszVQdGTeOXA=";
+    hash = "sha256-+Xw1WZXvZUOdA/ZpLdLCQAy8cmQ9QTiSDRMgj5+jeNw=";
 
     postFetch = ''
       ${lib.getExe npm-lockfile-fix} -r $out/package-lock.json
     '';
   };
 
-  npmDepsHash = "sha256-iP1op4R7OUA7cSW/dJCBBGcb5r6icSbx/X7mYogiMkA=";
+  npmDepsHash = "sha256-SAmSvdPlJFDE6TQCr932MfPzlwDtGcm4YdHesVA6j8c=";
   npmFlags = [ "--legacy-peer-deps" ];
   makeCacheWritable = true;
 

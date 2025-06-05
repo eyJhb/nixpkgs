@@ -83,9 +83,8 @@ stdenv.mkDerivation (finalAttrs: {
     homepage = "http://qalculate.github.io";
     license = licenses.gpl2Plus;
     maintainers = with maintainers; [
-      gebner
       doronbehar
-      alyaeanyx
+      pentane
     ];
     mainProgram = "qalc";
     platforms = platforms.all;

@@ -4,7 +4,6 @@
 
   buildGoModule,
   fetchFromGitHub,
-  fetchpatch,
 
   makeWrapper,
   installShellFiles,
@@ -24,7 +23,7 @@
 }:
 
 let
-  version = "1.80.3";
+  version = "1.84.1";
 in
 buildGoModule {
   pname = "tailscale";
@@ -39,19 +38,10 @@ buildGoModule {
     owner = "tailscale";
     repo = "tailscale";
     rev = "v${version}";
-    hash = "sha256-UOz2EAUlYZx2XBzw8hADO0ti9bgwz19MTg60rSefSB8=";
+    hash = "sha256-rEfBoRKOM1DnMfgEkPI6wzzMwGIOUhowJRlaAQ8QZjY=";
   };
 
-  patches = [
-    # Fix "tailscale ssh" when built with ts_include_cli tag
-    # https://github.com/tailscale/tailscale/pull/12109
-    (fetchpatch {
-      url = "https://github.com/tailscale/tailscale/commit/325ca13c4549c1af58273330744d160602218af9.patch";
-      hash = "sha256-SMwqZiGNVflhPShlHP+7Gmn0v4b6Gr4VZGIF/oJAY8M=";
-    })
-  ];
-
-  vendorHash = "sha256-81UOjoC5GJqhNs4vWcQ2/B9FMaDWtl0rbuFXmxbu5dI=";
+  vendorHash = "sha256-QBYCMOWQOBCt+69NtJtluhTZIOiBWcQ78M9Gbki6bN0=";
 
   nativeBuildInputs = [
     makeWrapper
@@ -69,6 +59,7 @@ buildGoModule {
     "cmd/derpprobe"
     "cmd/tailscaled"
     "cmd/tsidp"
+    "cmd/get-authkey"
   ];
 
   excludedPackages = [
@@ -104,8 +95,10 @@ buildGoModule {
     # want but also limits the tests
     unset subPackages
 
-    # several tests hang
-    rm tsnet/tsnet_test.go
+    # several tests hang, but keeping the file for tsnet/packet_filter_test.go
+    # packet_filter_test issue: https://github.com/tailscale/tailscale/issues/16051
+    substituteInPlace tsnet/tsnet_test.go \
+      --replace-fail 'func Test' 'func skippedTest'
   '';
 
   checkFlags =
@@ -143,6 +136,22 @@ buildGoModule {
           # test for a dev util which helps to fork golang.org/x/crypto/acme
           # not necessary and fails to match
           "TestSyncedToUpstream" # tempfork/acme
+
+          # flaky: https://github.com/tailscale/tailscale/issues/7030
+          "TestConcurrent"
+
+          # flaky: https://github.com/tailscale/tailscale/issues/11762
+          "TestTwoDevicePing"
+
+          # timeout 10m
+          "TestTaildropIntegration"
+          "TestTaildropIntegration_Fresh"
+
+          # context deadline exceeded
+          "TestPacketFilterFromNetmap"
+
+          # flaky: https://github.com/tailscale/tailscale/issues/15348
+          "TestSafeFuncHappyPath"
         ]
         ++ lib.optionals stdenv.hostPlatform.isDarwin [
           # syscall default route interface en0 differs from netstat
@@ -154,6 +163,9 @@ buildGoModule {
 
           # portlist_test.go:81: didn't find ephemeral port in p2 53643
           "TestPoller" # portlist
+
+          # Fails only on Darwin, succeeds on other tested platforms.
+          "TestOnTailnetDefaultAutoUpdate"
         ];
     in
     [ "-skip=^${builtins.concatStringsSep "$|^" skippedTests}$" ];
